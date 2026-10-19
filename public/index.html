@@ -343,6 +343,18 @@
     color: var(--accent);
   }
 
+  .fav-btn {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .fav-btn.on { color: var(--accent); border-color: var(--accent); }
+
   .variant-btn.active.pll-active {
     border-color: var(--pll-color);
     background: #48c9f720;
@@ -731,6 +743,7 @@
     .speed-ctrl input[type=range] { width: 160px; }
 
     .chip-btn { padding: 7px 10px; font-size: 11px; }
+    .fav-btn { padding: 6px 11px; font-size: 14px; }
     .badge { padding: 3px 9px; font-size: 11px; }
     #btn-timer { padding: 13px 0; font-size: 14px; }
 
@@ -1017,7 +1030,9 @@ for (const [tab, data] of Object.entries(ALGS_BY_TAB))
 
 // Shareable link: #oll/sune or #pll/adj-corner-swap/j-perm-b
 function linkFor(alg, vi) {
-  return `#${alg.key}` + (vi ? `/${slug(alg.variants[vi].label)}` : '');
+  // Name the variant whenever it isn't plain variant 0, so links don't depend on favorites
+  const named = vi || store.favorites[alg.key];
+  return `#${alg.key}` + (named ? `/${slug(alg.variants[vi].label)}` : '');
 }
 
 // Saved per browser: every timed solve, cases left out of scrambles,
@@ -1025,7 +1040,7 @@ function linkFor(alg, vi) {
 const STORE_KEY = 'cube-trainer-v2';
 
 function loadStore() {
-  const empty = { solves: [], excluded: {}, mode: 'oll', last: null };
+  const empty = { solves: [], excluded: {}, favorites: {}, mode: 'oll', last: null };
   try { return { ...empty, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; }
   catch { return empty; }
 }
@@ -1046,6 +1061,13 @@ function aoN(times, n) {
 }
 
 const isIncluded = alg => !store.excluded[alg.key];
+
+// Favorite variant per case (stored by label slug): loads first when the case opens
+function defaultVariant(alg) {
+  const i = alg.variants.findIndex(v => slug(v.label) === store.favorites[alg.key]);
+  return i >= 0 ? i : 0;
+}
+const isFavorite = (alg, vi) => store.favorites[alg.key] === slug(alg.variants[vi].label);
 
 // Per-case stats come from OLL-only / PLL-only solves, where the starting
 // case is known; in OLL + PLL the PLL you get depends on how you solved OLL
@@ -1208,9 +1230,12 @@ let selectedCard = null;
 // Track chosen variant index per alg (keyed by name)
 const chosenVariants = {};
 
+function variantIdx(alg) {
+  return chosenVariants[alg.name] ?? defaultVariant(alg);
+}
+
 function getAlgString(alg) {
-  const idx = chosenVariants[alg.name] || 0;
-  return alg.variants[idx].alg;
+  return alg.variants[variantIdx(alg)].alg;
 }
 
 function caseBadge(alg, focus) {
@@ -1254,7 +1279,7 @@ function renderList() {
       card.dataset.algName = alg.name;
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
-      const varIdx = chosenVariants[alg.name] || 0;
+      const varIdx = variantIdx(alg);
       const isPll = currentTab === 'pll';
       const svgHtml = createIconSvg(alg.variants[varIdx].alg, currentTab, section.edgesOnly);
 
@@ -1263,9 +1288,9 @@ function renderList() {
         const cls = i === varIdx
           ? (isPll ? 'variant-btn active pll-active' : 'variant-btn active')
           : 'variant-btn';
-        variantsHtml += `<button class="${cls}" data-vidx="${i}">${v.label}</button>`;
+        variantsHtml += `<button class="${cls}" data-vidx="${i}">${isFavorite(alg, i) ? '★ ' : ''}${v.label}</button>`;
       });
-      variantsHtml += '</div>';
+      variantsHtml += `<button class="fav-btn" data-act="fav"></button></div>`;
 
       if (!isIncluded(alg)) card.classList.add('excluded');
       card.innerHTML = `
@@ -1286,8 +1311,30 @@ function renderList() {
 
       // Click card body → select this alg
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.variant-btn, .chip-btn')) return;
+        if (e.target.closest('.variant-btn, .chip-btn, .fav-btn')) return;
         selectAlg(alg, card);
+      });
+
+      // Star the selected variant as this case's default (tap again to clear)
+      const favBtn = card.querySelector('[data-act=fav]');
+      const syncFav = () => {
+        const on = isFavorite(alg, variantIdx(alg));
+        favBtn.textContent = on ? '★' : '☆';
+        favBtn.classList.toggle('on', on);
+        favBtn.title = on ? 'Default variant for this case (tap to clear)' : 'Make the selected variant the default for this case';
+        card.querySelectorAll('.variant-btn').forEach((b, j) => {
+          b.textContent = (isFavorite(alg, j) ? '★ ' : '') + alg.variants[j].label;
+        });
+      };
+      syncFav();
+      favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vi = variantIdx(alg);
+        if (isFavorite(alg, vi)) delete store.favorites[alg.key];
+        else store.favorites[alg.key] = slug(alg.variants[vi].label);
+        chosenVariants[alg.name] = vi;
+        saveStore();
+        syncFav();
       });
 
       card.querySelector('[data-act=time]').addEventListener('click', (e) => {
@@ -1327,6 +1374,7 @@ function renderList() {
               ? (isPll ? 'variant-btn active pll-active' : 'variant-btn active')
               : 'variant-btn';
           });
+          syncFav();
           // If this is the currently selected alg, reload it
           if (selectedCard === card) {
             selectAlg(alg, card);
@@ -2062,7 +2110,7 @@ function selectAlg(alg, cardEl) {
   updateDisplay();
   updateButtons();
 
-  const link = linkFor(alg, chosenVariants[alg.name] || 0);
+  const link = linkFor(alg, variantIdx(alg));
   store.last = link;
   saveStore();
 
@@ -2176,7 +2224,7 @@ function setHint(on) {
     ${createIconSvg(solution.join(' '), kind, false, 72)}
     <div>
       <div class="name">${first.name}${first.step === 1 ? ' <span style="color:var(--text-dim)">(first look)</span>' : ''}</div>
-      <div class="alg">${first.variants[0].alg}</div>
+      <div class="alg">${first.variants[defaultVariant(first)].alg}</div>
       ${mode === 'll' ? '<div class="alg">…then PLL</div>' : ''}
     </div>`;
 }
@@ -2346,7 +2394,7 @@ function openLink(hash) {
   const alg = ALGS_BY_TAB[tab].flatMap(section => section.algs).find(a => slug(a.name) === algSlug);
   if (!alg) return;
   const vi = alg.variants.findIndex(v => slug(v.label) === varSlug);
-  if (vi > 0) chosenVariants[alg.name] = vi;
+  if (vi >= 0) chosenVariants[alg.name] = vi;
   renderList();
   const card = [...algListEl.querySelectorAll('.alg-card')].find(c => c.dataset.algName === alg.name);
   selectAlg(alg, card);
