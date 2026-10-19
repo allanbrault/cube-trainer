@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Two-Look OLL & PLL — 3D Cube Trainer</title>
+<meta name="description" content="Learn beginner two-look OLL and PLL on an interactive 3D Rubik's cube: pick a case, choose an algorithm, and step through it move by move.">
+<meta name="theme-color" content="#0c0c0f">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://cube.lyuz.net/">
+<meta property="og:title" content="Two-Look OLL & PLL — 3D Cube Trainer">
+<meta property="og:description" content="Pick a case, choose an algorithm, and step through it move by move on an interactive 3D cube.">
+<meta property="og:image" content="https://cube.lyuz.net/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
@@ -175,6 +187,7 @@
     flex: 1;
     position: relative;
     cursor: grab;
+    touch-action: none;
   }
 
   #cube-container:active { cursor: grabbing; }
@@ -185,21 +198,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
+    justify-content: flex-end;
+    padding-bottom: 24px;
     pointer-events: none;
-  }
-
-  #placeholder .icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 36px;
   }
 
   #placeholder p {
@@ -289,11 +290,6 @@
   /* Mini cube SVG colors */
   .oll-yellow { fill: #f7c948; }
   .oll-gray { fill: #3a3a4a; }
-  .pll-red { fill: #ef4444; }
-  .pll-orange { fill: #f97316; }
-  .pll-blue { fill: #3b82f6; }
-  .pll-green { fill: #22c55e; }
-  .pll-yellow { fill: #f7c948; }
 
   .alg-variants {
     display: flex;
@@ -444,7 +440,6 @@
   <button id="modal-close">✕</button>
   <div id="cube-container">
     <div id="placeholder">
-      <div class="icon">🎲</div>
       <p>Select an algorithm to begin</p>
     </div>
   </div>
@@ -480,16 +475,16 @@ import * as THREE from 'three';
 const OLL_ALGS = [
   {
     section: "STEP 1 — EDGE ORIENTATION",
+    edgesOnly: true,
     algs: [
       {
         name: "Dot",
         desc: "No edges oriented",
         variants: [
           { label: "Standard", alg: "F R U R' U' F' f R U R' U' f'" },
-          { label: "One-look", alg: "R U R' U R U' R' U R U2 R' F R U R' U' F'" },
+          { label: "One-look", alg: "R U2 R2 F R F' U2 R' F R F'" },
           { label: "r U r'", alg: "r U r' U2 R U2 R' U2 r U' r'" },
         ],
-        pattern: { edges: [0,0,0,0], corners: [0,0,0,0] }
       },
       {
         name: "L-Shape",
@@ -497,9 +492,8 @@ const OLL_ALGS = [
         variants: [
           { label: "f-wide", alg: "f R U R' U' f'" },
           { label: "F U R", alg: "F U R U' R' F'" },
-          { label: "r U r'", alg: "r U R' U' r' F R F'" },
+          { label: "Left-hand", alg: "f' L' U' L U f" },
         ],
-        pattern: { edges: [0,1,1,0], corners: [0,0,0,0] }
       },
       {
         name: "Line",
@@ -509,7 +503,6 @@ const OLL_ALGS = [
           { label: "R' F", alg: "R' F' U' F U R" },
           { label: "f-wide", alg: "f U R U' R' f'" },
         ],
-        pattern: { edges: [1,0,1,0], corners: [0,0,0,0] }
       }
     ]
   },
@@ -524,9 +517,6 @@ const OLL_ALGS = [
           { label: "Left-hand", alg: "L' U2 L U L' U L" },
           { label: "L U L'", alg: "L U L' U L U2 L'" },
         ],
-        // corners: [TL(UBL), TR(UBR), BR(UFR), BL(UFL)]
-        // 'U'=yellow up, 'B'/'F'/'R'/'L'=yellow facing that side
-        pattern: { edges: [1,1,1,1], corners: ['U','R','F','L'] }
       },
       {
         name: "Anti-Sune (OLL 26)",
@@ -536,7 +526,6 @@ const OLL_ALGS = [
           { label: "Left-hand", alg: "R' U' R U' R' U2 R" },
           { label: "L' U2 L", alg: "L' U' L U' L' U2 L" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['L','B','U','F'] }
       },
       {
         name: "H / Double Sune (OLL 21)",
@@ -546,7 +535,6 @@ const OLL_ALGS = [
           { label: "Inverse", alg: "R U2 R' U' R U R' U' R U' R'" },
           { label: "F-based", alg: "F R U R' U' R U R' U' R U R' U' F'" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['L','R','R','L'] }
       },
       {
         name: "Pi / Bruno (OLL 22)",
@@ -556,7 +544,6 @@ const OLL_ALGS = [
           { label: "Mirror", alg: "R' U2 R2 U R2 U R2 U2 R'" },
           { label: "f-based", alg: "f R U R' U' f' F R U R' U' F'" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['B','B','F','F'] }
       },
       {
         name: "T / Chameleon (OLL 24)",
@@ -566,7 +553,6 @@ const OLL_ALGS = [
           { label: "R' F'", alg: "R' F' r U R U' r' F" },
           { label: "R U R D", alg: "R U R D R' U' R D' R2" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['U','R','U','L'] }
       },
       {
         name: "L / Bowtie (OLL 25)",
@@ -576,7 +562,6 @@ const OLL_ALGS = [
           { label: "F' r U R'", alg: "F' r U R' U' r' F R" },
           { label: "F R' F'", alg: "F R' F' r U R U' r'" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['L','U','F','U'] }
       },
       {
         name: "Headlights (OLL 23)",
@@ -586,7 +571,6 @@ const OLL_ALGS = [
           { label: "Mirror", alg: "R2 D' R U2 R' D R U2 R" },
           { label: "2GEN long", alg: "R U R' U R U2 R2 U' R U' R' U2 R" },
         ],
-        pattern: { edges: [1,1,1,1], corners: ['U','U','F','F'] }
       }
     ]
   }
@@ -605,7 +589,6 @@ const PLL_ALGS = [
           { label: "J-Perm (b)", alg: "R U R' F' R U R' U' R' F R2 U' R'" },
           { label: "F-Perm", alg: "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R" },
         ],
-        pllColors: ['r','b','b','r','g','g','o','o','o','r','r','b']
       },
       {
         name: "Diag. Corner Swap",
@@ -615,7 +598,6 @@ const PLL_ALGS = [
           { label: "N-Perm (a)", alg: "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'" },
           { label: "V-Perm", alg: "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2" },
         ],
-        pllColors: ['r','b','g','b','g','b','o','r','o','g','o','r']
       }
     ]
   },
@@ -630,7 +612,6 @@ const PLL_ALGS = [
           { label: "M-slice", alg: "M2 U M U2 M' U M2" },
           { label: "R2 version", alg: "R2 U' R' U' R U R U R U' R" },
         ],
-        pllColors: ['r','r','r','g','b','g','o','o','o','b','g','b']
       },
       {
         name: "Ub-Perm",
@@ -640,7 +621,6 @@ const PLL_ALGS = [
           { label: "M-slice", alg: "M2 U' M U2 M' U' M2" },
           { label: "R' version", alg: "R' U R' U' R' U' R' U R U R2" },
         ],
-        pllColors: ['r','r','r','b','g','b','o','o','o','g','b','g']
       },
       {
         name: "H-Perm",
@@ -648,9 +628,8 @@ const PLL_ALGS = [
         variants: [
           { label: "RU Standard", alg: "R2 U2 R U2 R2 U2 R2 U2 R U2 R2" },
           { label: "M-slice", alg: "M2 U M2 U2 M2 U M2" },
-          { label: "R2 short", alg: "R2 U2 R2 U2 R2 U2" },
+          { label: "M2 U'", alg: "M2 U' M2 U2 M2 U' M2" },
         ],
-        pllColors: ['r','o','r','g','b','g','o','r','o','b','g','b']
       },
       {
         name: "Z-Perm",
@@ -660,7 +639,6 @@ const PLL_ALGS = [
           { label: "M-slice", alg: "M2 U M2 U M' U2 M2 U2 M'" },
           { label: "M' U", alg: "M' U M2 U M2 U M' U2 M2" },
         ],
-        pllColors: ['r','g','r','b','r','g','o','o','o','g','b','b']
       }
     ]
   }
@@ -702,116 +680,87 @@ function outsideMarker(r, c, side, fillClass, fillHex) {
   return `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="1" ${fill}/>`;
 }
 
-function createOLLSvg(pattern) {
-  const { total, cs } = ICON;
-  let svg = `<svg width="48" height="48" viewBox="0 0 ${total} ${total}" xmlns="http://www.w3.org/2000/svg">`;
+// ── Sticker model: replays the setup (inverse alg) on a solved cube so the
+//    icon always shows exactly the case the 3D cube will show ──
+const FACE_NORMALS = { R:[1,0,0], L:[-1,0,0], U:[0,1,0], D:[0,-1,0], F:[0,0,1], B:[0,0,-1] };
+// Outside sides of the top-down icon: T = back, B = front
+const SIDE_NORMALS = { T:[0,0,-1], B:[0,0,1], L:[-1,0,0], R:[1,0,0] };
 
-  // Detect if this is step 2 (corner orientation) — all edges oriented
-  const isStep2 = pattern.edges.every(e => e === 1);
-
-  // Center — always yellow
-  const cen = iconCellXY(1, 1);
-  svg += `<rect x="${cen.x}" y="${cen.y}" width="${cs}" height="${cs}" rx="2" class="oll-yellow"/>`;
-
-  // Edges: T=0, R=1, B=2, L=3
-  const edgeDefs = [
-    { r:0, c:1, outside:'T' },
-    { r:1, c:2, outside:'R' },
-    { r:2, c:1, outside:'B' },
-    { r:1, c:0, outside:'L' },
-  ];
-  edgeDefs.forEach((e, i) => {
-    const p = iconCellXY(e.r, e.c);
-    const oriented = pattern.edges[i];
-    svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" class="${oriented ? 'oll-yellow' : 'oll-gray'}"/>`;
-    // Step 1: gray marker on unoriented edges. Step 2: gray marker on all edges.
-    if (!oriented || isStep2) {
-      svg += outsideMarker(e.r, e.c, e.outside, 'oll-gray', null);
-    }
-  });
-
-  // Corners: [TL(UBL), TR(UBR), BR(UFR), BL(UFL)]
-  const cornerPos = [[0,0],[0,2],[2,2],[2,0]];
-  const cornerOutside = [
-    { B:'T', F:'B', L:'L', R:'R' },
-    { B:'T', F:'B', L:'L', R:'R' },
-    { B:'T', F:'B', L:'L', R:'R' },
-    { B:'T', F:'B', L:'L', R:'R' },
-  ];
-  // Each corner's two outside edges (for gray fill in step 2)
-  const cornerAllOutsides = [
-    ['T','L'], // TL
-    ['T','R'], // TR
-    ['B','R'], // BR
-    ['B','L'], // BL
-  ];
-
-  cornerPos.forEach(([r,c], i) => {
-    const p = iconCellXY(r, c);
-    const val = pattern.corners[i];
-
-    if (val === 'U' || val === 1) {
-      // Oriented corner — yellow cell
-      svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" class="oll-yellow"/>`;
-      if (isStep2) {
-        // Gray markers on both outside edges
-        cornerAllOutsides[i].forEach(side => {
-          svg += outsideMarker(r, c, side, 'oll-gray', null);
-        });
-      }
-    } else if (typeof val === 'string') {
-      // Twisted corner — gray cell + yellow marker on twist side
-      svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" class="oll-gray"/>`;
-      const yellowSide = cornerOutside[i][val];
-      if (yellowSide) svg += outsideMarker(r, c, yellowSide, 'oll-yellow', null);
-      // Gray markers on the other outside edge(s)
-      cornerAllOutsides[i].forEach(side => {
-        if (side !== yellowSide) svg += outsideMarker(r, c, side, 'oll-gray', null);
-      });
-    } else {
-      // Step 1 corner (numeric 0) — just gray, no markers
-      svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" class="oll-gray"/>`;
-    }
-  });
-
-  svg += '</svg>';
-  return svg;
+// Rotate an integer vector by q quarter turns (right-handed, like THREE)
+function rotQuarter(v, axis, q) {
+  let [x, y, z] = v;
+  for (let i = 0; i < ((q % 4) + 4) % 4; i++) {
+    if (axis === 'x') [y, z] = [-z, y];
+    else if (axis === 'y') [z, x] = [-x, z];
+    else [x, y] = [-y, x];
+  }
+  return [x, y, z];
 }
 
-function createPLLSvg(colors) {
-  // colors: [F-L, F-C, F-R, R-L, R-C, R-R, B-L, B-C, B-R, L-L, L-C, L-R]
-  const hexMap = { r:'#ef4444', o:'#f97316', b:'#3b82f6', g:'#22c55e' };
-  const { total, cs } = ICON;
+// Returns sticker(r, c, side): face letter of the top-layer sticker at icon
+// cell (r,c) — side 'U' for the top sticker, or 'T'/'B'/'L'/'R' for the side one
+function topLayerFor(algStr) {
+  const stickers = [];
+  for (let x = -1; x <= 1; x++)
+    for (let y = -1; y <= 1; y++)
+      for (let z = -1; z <= 1; z++)
+        for (const [face, n] of Object.entries(FACE_NORMALS))
+          if (n[0] * x + n[1] * y + n[2] * z === 1) stickers.push({ p: [x, y, z], n, face });
 
+  getInverse(tokenize(algStr)).forEach(tok => {
+    const move = parseMove(tok);
+    const k = { x: 0, y: 1, z: 2 }[move.axis];
+    const q = Math.round(move.angle / (Math.PI / 2));
+    stickers.forEach(s => {
+      if (!move.layers.includes(s.p[k])) return;
+      s.p = rotQuarter(s.p, move.axis, q);
+      s.n = rotQuarter(s.n, move.axis, q);
+    });
+  });
+
+  return (r, c, side) => {
+    const p = [c - 1, 1, r - 1];
+    const n = side === 'U' ? FACE_NORMALS.U : SIDE_NORMALS[side];
+    return stickers.find(s => s.p + '' === p + '' && s.n + '' === n + '').face;
+  };
+}
+
+// Outside sides of icon cell (r,c)
+function outsideSides(r, c) {
+  const sides = [];
+  if (r === 0) sides.push('T');
+  if (r === 2) sides.push('B');
+  if (c === 0) sides.push('L');
+  if (c === 2) sides.push('R');
+  return sides;
+}
+
+// Same hues as the 3D cube: F green, R red, B blue, L orange
+const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#ef4444', B:'#3b82f6', L:'#f97316', D:'#e8e8f0' };
+
+// kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors.
+// edgesOnly: step-1 OLL, where corners don't matter and are drawn neutral.
+function createIconSvg(algStr, kind, edgesOnly) {
+  const { total, cs } = ICON;
+  const sticker = topLayerFor(algStr);
   let svg = `<svg width="48" height="48" viewBox="0 0 ${total} ${total}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // All 9 cells are yellow (OLL is solved)
   for (let r = 0; r < 3; r++)
     for (let c = 0; c < 3; c++) {
       const p = iconCellXY(r, c);
-      svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" fill="#f7c948"/>`;
+      const isCorner = r !== 1 && c !== 1;
+      const neutral = kind === 'oll' && edgesOnly && isCorner;
+      const top = sticker(r, c, 'U');
+      const cls = neutral || top !== 'U' ? 'oll-gray' : 'oll-yellow';
+      svg += `<rect x="${p.x}" y="${p.y}" width="${cs}" height="${cs}" rx="2" class="${cls}"/>`;
+      if (neutral) continue;
+
+      outsideSides(r, c).forEach(side => {
+        const face = sticker(r, c, side);
+        if (kind === 'pll') svg += outsideMarker(r, c, side, null, ICON_FACE_HEX[face]);
+        else svg += outsideMarker(r, c, side, face === 'U' ? 'oll-yellow' : 'oll-gray', null);
+      });
     }
-
-  // Outside markers for side stickers
-  // Front (bottom side): colors[0]=BL-corner, [1]=B-edge, [2]=BR-corner
-  svg += outsideMarker(2, 0, 'B', null, hexMap[colors[0]]);
-  svg += outsideMarker(2, 1, 'B', null, hexMap[colors[1]]);
-  svg += outsideMarker(2, 2, 'B', null, hexMap[colors[2]]);
-
-  // Right side: colors[3]=TR-corner, [4]=R-edge, [5]=BR-corner
-  svg += outsideMarker(0, 2, 'R', null, hexMap[colors[3]]);
-  svg += outsideMarker(1, 2, 'R', null, hexMap[colors[4]]);
-  svg += outsideMarker(2, 2, 'R', null, hexMap[colors[5]]);
-
-  // Back (top side, reversed): colors[6]=TR-corner, [7]=T-edge, [8]=TL-corner
-  svg += outsideMarker(0, 2, 'T', null, hexMap[colors[6]]);
-  svg += outsideMarker(0, 1, 'T', null, hexMap[colors[7]]);
-  svg += outsideMarker(0, 0, 'T', null, hexMap[colors[8]]);
-
-  // Left side (reversed): colors[9]=BL-corner, [10]=L-edge, [11]=TL-corner
-  svg += outsideMarker(2, 0, 'L', null, hexMap[colors[9]]);
-  svg += outsideMarker(1, 0, 'L', null, hexMap[colors[10]]);
-  svg += outsideMarker(0, 0, 'L', null, hexMap[colors[11]]);
 
   svg += '</svg>';
   return svg;
@@ -824,6 +773,7 @@ function createPLLSvg(colors) {
 const algListEl = document.getElementById('alg-list');
 const tabBtns = document.querySelectorAll('.tab-btn');
 let currentTab = 'oll';
+let currentAlg = null;
 let selectedCard = null;
 // Track chosen variant index per alg (keyed by name)
 const chosenVariants = {};
@@ -846,11 +796,11 @@ function renderList() {
       const card = document.createElement('div');
       card.className = 'alg-card';
       card.dataset.algName = alg.name;
-      const svgHtml = currentTab === 'oll'
-        ? createOLLSvg(alg.pattern)
-        : createPLLSvg(alg.pllColors);
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
       const varIdx = chosenVariants[alg.name] || 0;
       const isPll = currentTab === 'pll';
+      const svgHtml = createIconSvg(alg.variants[varIdx].alg, currentTab, section.edgesOnly);
 
       let variantsHtml = '<div class="alg-variants">';
       alg.variants.forEach((v, i) => {
@@ -875,14 +825,22 @@ function renderList() {
         selectAlg(alg, card);
       });
 
+      card.addEventListener('keydown', (e) => {
+        if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          selectAlg(alg, card);
+        }
+      });
+
       // Click variant button → switch variant
       card.querySelectorAll('.variant-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const vi = parseInt(btn.dataset.vidx);
           chosenVariants[alg.name] = vi;
-          // Update moves display on this card
+          // Update moves display and icon on this card
           card.querySelector('.alg-moves').textContent = alg.variants[vi].alg;
+          card.querySelector('.alg-mini-cube').innerHTML = createIconSvg(alg.variants[vi].alg, currentTab, section.edgesOnly);
           // Update variant buttons
           card.querySelectorAll('.variant-btn').forEach((b, j) => {
             b.className = j === vi
@@ -896,6 +854,12 @@ function renderList() {
         });
       });
 
+      if (alg === currentAlg) {
+        card.classList.add('selected');
+        if (isPll) card.classList.add('pll-selected');
+        selectedCard = card;
+      }
+
       algListEl.appendChild(card);
     });
   });
@@ -906,6 +870,7 @@ tabBtns.forEach(btn => {
     tabBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentTab = btn.dataset.tab;
+    selectedCard = null;
     renderList();
   });
 });
@@ -952,6 +917,7 @@ const cubeGroup = new THREE.Group();
 scene.add(cubeGroup);
 
 let displayMode = 'full'; // 'full', 'oll', 'pll'
+let buildGen = 0; // bumped on every rebuild so in-flight animations can bail out
 
 // ── Geometry constants ──
 const BODY_SIZE = 0.93;
@@ -1039,7 +1005,10 @@ const FACE_DEFS = [
 ];
 
 function buildCube() {
+  buildGen++;
   while (cubeGroup.children.length) cubeGroup.remove(cubeGroup.children[0]);
+  while (pivot.children.length) pivot.remove(pivot.children[0]);
+  pivot.rotation.set(0, 0, 0);
   cubies.length = 0;
 
   for (let x = -1; x <= 1; x++) {
@@ -1077,6 +1046,9 @@ function buildCube() {
     }
   }
 }
+
+const pivot = new THREE.Group();
+scene.add(pivot);
 
 buildCube();
 
@@ -1222,8 +1194,6 @@ function tokenize(algStr) {
 // ═══════════════════════════════════════════
 
 let animating = false;
-const pivot = new THREE.Group();
-scene.add(pivot);
 
 function roundPos(v) {
   return Math.round(v * 10) / 10;
@@ -1233,6 +1203,7 @@ function animateMove(move, duration) {
   return new Promise(resolve => {
     if (!move) { resolve(); return; }
 
+    const gen = buildGen;
     const affected = getCubiesForMove(move.axis, move.layers);
     const axisVec = new THREE.Vector3(
       move.axis === 'x' ? 1 : 0,
@@ -1253,6 +1224,8 @@ function animateMove(move, duration) {
     const startTime = performance.now();
 
     function tick() {
+      // Cube was rebuilt mid-move: buildCube already discarded these cubies
+      if (gen !== buildGen) { resolve(); return; }
       const elapsed = performance.now() - startTime;
       const t = Math.min(elapsed / duration, 1);
       // Ease in-out
@@ -1302,7 +1275,6 @@ function animateMove(move, duration) {
 //  PLAYER LOGIC
 // ═══════════════════════════════════════════
 
-let currentAlg = null;
 let moveTokens = [];
 let moveIndex = 0;
 let playing = false;
@@ -1374,11 +1346,13 @@ async function goToStep(targetIndex) {
 
   const fastDuration = Math.min(getMoveDuration(), 200);
 
+  const gen = buildGen;
   if (targetIndex > moveIndex) {
     // Animate forward
     while (moveIndex < targetIndex && moveIndex < moveTokens.length) {
       const move = parseMove(moveTokens[moveIndex]);
       await animateMove(move, fastDuration);
+      if (gen !== buildGen) return;
       moveIndex++;
       updateDisplay();
     }
@@ -1393,6 +1367,7 @@ async function goToStep(targetIndex) {
       else inverseTok = tok + "'";
       const move = parseMove(inverseTok);
       await animateMove(move, fastDuration);
+      if (gen !== buildGen) return;
       updateDisplay();
     }
   }
@@ -1425,8 +1400,10 @@ async function doStepBack() {
   else if (tok.endsWith('2')) inverseTok = tok;
   else inverseTok = tok + "'";
 
+  const gen = buildGen;
   const move = parseMove(inverseTok);
   await animateMove(move, getMoveDuration());
+  if (gen !== buildGen) return;
   animating = false;
   updateDisplay();
   updateButtons();
@@ -1437,8 +1414,10 @@ async function doStep() {
   animating = true;
   updateButtons();
 
+  const gen = buildGen;
   const move = parseMove(moveTokens[moveIndex]);
   await animateMove(move, getMoveDuration());
+  if (gen !== buildGen) return;
   moveIndex++;
   animating = false;
   updateDisplay();
@@ -1550,6 +1529,14 @@ btnPlay.addEventListener('click', () => {
 btnStep.addEventListener('click', doStep);
 btnBack.addEventListener('click', doStepBack);
 btnReset.addEventListener('click', resetCube);
+
+// Keyboard: Space = play/pause, ←/→ = step back/forward
+window.addEventListener('keydown', e => {
+  if (!currentAlg || e.target.closest('button, input, .alg-card')) return;
+  if (e.key === ' ') { e.preventDefault(); btnPlay.click(); }
+  else if (e.key === 'ArrowRight') doStep();
+  else if (e.key === 'ArrowLeft') doStepBack();
+});
 
 // ═══════════════════════════════════════════
 //  RENDER LOOP
