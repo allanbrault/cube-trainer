@@ -217,7 +217,7 @@
 
   /* ── Controls Bar ── */
   #controls {
-    height: 110px;
+    min-height: 110px;
     background: var(--panel);
     border-top: 1px solid var(--border);
     display: flex;
@@ -225,7 +225,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 0 30px;
+    padding: 14px 30px;
     user-select: none;
     -webkit-user-select: none;
   }
@@ -248,6 +248,8 @@
 
   .btn-row {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
     align-items: center;
   }
@@ -266,6 +268,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
   }
 
   @media (hover: hover) { .ctrl-btn:hover { background: var(--card-hover); border-color: var(--text-dim); } }
@@ -339,6 +342,115 @@
     background: #48c9f720;
     color: var(--pll-color);
   }
+
+  /* ── Progress ── */
+  .tab-count { font-weight: 400; opacity: .55; margin-left: 4px; }
+
+  .alg-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .alg-name-row .alg-name { margin-bottom: 0; }
+
+  .status-btn {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .status-btn[data-status=learning] { border-color: var(--accent); color: var(--accent); }
+  .status-btn[data-status=known] { border-color: var(--green); color: var(--green); background: #4ade8018; }
+
+  /* ── Drill ── */
+  .drill-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  #btn-drill {
+    flex: 1;
+    padding: 9px 0;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+  }
+  #btn-drill.pll { border-color: var(--pll-color); background: #48c9f720; color: var(--pll-color); }
+
+  .focus-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .focus-toggle input { accent-color: var(--accent); }
+
+  #drill-hud {
+    display: none;
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 32px);
+    text-align: center;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #main.drill-mode #drill-hud { display: block; }
+
+  #drill-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  #drill-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 34px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #drill-answer { font-size: 15px; min-height: 22px; }
+  #drill-answer .meta {
+    display: block;
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  #drill-actions { display: none; gap: 8px; }
+  #main.drill-mode #drill-actions { display: flex; }
+  #main.drill-mode:not(.drill-revealed) #alg-display,
+  #main.drill-mode:not(.drill-revealed) .btn-row { display: none; }
+  #main.drill-revealed #btn-reveal,
+  #main:not(.drill-revealed) .grade-btn { display: none; }
+  .ctrl-btn.good { border-color: var(--green); color: var(--green); }
+  .ctrl-btn.bad { border-color: var(--red); color: var(--red); }
 
   /* ── Mobile modal close button ── */
   #modal-close {
@@ -469,6 +581,13 @@
       min-height: 32px;
     }
     .speed-ctrl input[type=range] { width: 160px; }
+
+    .status-btn { padding: 5px 10px; font-size: 11px; }
+    #btn-drill { padding: 12px 0; font-size: 13px; }
+    #drill-hud { top: calc(max(14px, env(safe-area-inset-top)) + 54px); }
+    #drill-actions { width: 100%; }
+    #drill-actions .ctrl-btn { flex: 1; min-height: 46px; }
+    #btn-drill-exit { display: none; }
   }
 </style>
 </head>
@@ -478,8 +597,14 @@
   <div id="sidebar-header">
     <h1>🧊 Two-Look <span>OLL</span> & <span>PLL</span></h1>
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="oll">OLL</button>
-      <button class="tab-btn" data-tab="pll">PLL</button>
+      <button class="tab-btn active" data-tab="oll">OLL<span class="tab-count"></span></button>
+      <button class="tab-btn" data-tab="pll">PLL<span class="tab-count"></span></button>
+    </div>
+    <div class="drill-row">
+      <button id="btn-drill">⚡ Drill OLL cases</button>
+      <label class="focus-toggle" title="Only drill cases not yet marked Known">
+        <input type="checkbox" id="drill-focus" checked> Skip known
+      </label>
     </div>
   </div>
   <div id="alg-list"></div>
@@ -490,7 +615,12 @@
   <button id="modal-close">✕</button>
   <div id="cube-container">
     <div id="placeholder">
-      <p>Select an algorithm to begin</p>
+      <p>Pick a case, or press Drill to practise</p>
+    </div>
+    <div id="drill-hud">
+      <div id="drill-label"></div>
+      <div id="drill-timer">0.00s</div>
+      <div id="drill-answer"></div>
     </div>
   </div>
   <div id="controls">
@@ -504,6 +634,12 @@
         <span>Speed</span>
         <input type="range" id="speed" min="1" max="10" value="5">
       </div>
+    </div>
+    <div id="drill-actions">
+      <button class="ctrl-btn" id="btn-drill-exit">Exit drill</button>
+      <button class="ctrl-btn primary" id="btn-reveal" title="Space">Reveal</button>
+      <button class="ctrl-btn grade-btn bad" id="btn-missed" title="Backspace">✗ Missed</button>
+      <button class="ctrl-btn grade-btn good" id="btn-knew" title="Enter">✓ Knew it</button>
     </div>
   </div>
 </div>
@@ -695,6 +831,48 @@ const PLL_ALGS = [
 ];
 
 // ═══════════════════════════════════════════
+//  PROGRESS & LINKS
+// ═══════════════════════════════════════════
+
+const ALGS_BY_TAB = { oll: OLL_ALGS, pll: PLL_ALGS };
+const slug = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+for (const [tab, data] of Object.entries(ALGS_BY_TAB))
+  data.forEach(section => section.algs.forEach(alg => {
+    alg.tab = tab;
+    alg.key = `${tab}/${slug(alg.name)}`;
+  }));
+
+// Shareable link: #oll/sune or #pll/adj-corner-swap/j-perm-b
+function linkFor(alg, vi) {
+  return `#${alg.key}` + (vi ? `/${slug(alg.variants[vi].label)}` : '');
+}
+
+// Saved per browser: status / streak / best time per case, last link, drill filter
+const STORE_KEY = 'cube-trainer-v1';
+const STATUSES = ['new', 'learning', 'known'];
+const STATUS_LABEL = { new: 'New', learning: 'Learning', known: 'Known ✓' };
+const KNOWN_AFTER = 3; // correct drills in a row to mark a case Known
+
+function loadProgress() {
+  const empty = { status: {}, streak: {}, best: {}, last: null, focus: true };
+  try { return { ...empty, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; }
+  catch { return empty; }
+}
+const progress = loadProgress();
+
+function saveProgress() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); } catch {}
+}
+
+function statusOf(alg) { return progress.status[alg.key] || 'new'; }
+
+function setStatus(alg, status) {
+  if (status === 'new') delete progress.status[alg.key];
+  else progress.status[alg.key] = status;
+}
+
+// ═══════════════════════════════════════════
 //  MINI CUBE SVG GENERATION
 // ═══════════════════════════════════════════
 
@@ -836,8 +1014,8 @@ function getAlgString(alg) {
 
 function renderList() {
   algListEl.innerHTML = '';
-  const data = currentTab === 'oll' ? OLL_ALGS : PLL_ALGS;
-  data.forEach(section => {
+  updateTabCounts();
+  ALGS_BY_TAB[currentTab].forEach(section => {
     const title = document.createElement('div');
     title.className = 'alg-section-title';
     title.textContent = section.section;
@@ -865,15 +1043,30 @@ function renderList() {
       card.innerHTML = `
         <div class="alg-mini-cube">${svgHtml}</div>
         <div class="alg-info">
-          <div class="alg-name">${alg.name}</div>
+          <div class="alg-name-row">
+            <div class="alg-name">${alg.name}</div>
+            <button class="status-btn" data-status="${statusOf(alg)}" title="Tap to change: New → Learning → Known">${STATUS_LABEL[statusOf(alg)]}</button>
+          </div>
           <div class="alg-moves">${alg.variants[varIdx].alg}</div>
           ${variantsHtml}
         </div>`;
 
       // Click card body → select this alg
       card.addEventListener('click', (e) => {
-        if (e.target.classList.contains('variant-btn')) return;
+        if (e.target.closest('.variant-btn, .status-btn')) return;
         selectAlg(alg, card);
+      });
+
+      // Click status pill → cycle New → Learning → Known
+      card.querySelector('.status-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = STATUSES[(STATUSES.indexOf(statusOf(alg)) + 1) % STATUSES.length];
+        setStatus(alg, next);
+        progress.streak[alg.key] = 0;
+        saveProgress();
+        e.currentTarget.dataset.status = next;
+        e.currentTarget.textContent = STATUS_LABEL[next];
+        updateTabCounts();
       });
 
       card.addEventListener('keydown', (e) => {
@@ -905,7 +1098,8 @@ function renderList() {
         });
       });
 
-      if (alg === currentAlg) {
+      // In a drill, highlighting the current case would give the answer away
+      if (alg === currentAlg && !drill.active) {
         card.classList.add('selected');
         if (isPll) card.classList.add('pll-selected');
         selectedCard = card;
@@ -916,15 +1110,33 @@ function renderList() {
   });
 }
 
-tabBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    tabBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTab = btn.dataset.tab;
-    selectedCard = null;
-    renderList();
+function updateTabCounts() {
+  tabBtns.forEach(btn => {
+    const algs = ALGS_BY_TAB[btn.dataset.tab].flatMap(section => section.algs);
+    const known = algs.filter(a => statusOf(a) === 'known').length;
+    btn.querySelector('.tab-count').textContent = `${known}/${algs.length}`;
   });
-});
+}
+
+function switchTab(tab) {
+  if (drill.active) leaveDrill();
+  tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  currentTab = tab;
+  selectedCard = null;
+  btnDrill.textContent = `⚡ Drill ${tab.toUpperCase()} cases`;
+  btnDrill.classList.toggle('pll', tab === 'pll');
+  renderList();
+}
+
+tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+const btnDrill = document.getElementById('btn-drill');
+const drillFocusEl = document.getElementById('drill-focus');
+drillFocusEl.checked = progress.focus;
+drillFocusEl.addEventListener('change', () => { progress.focus = drillFocusEl.checked; saveProgress(); });
+
+// Drill session state (logic lives under DRILL MODE)
+const drill = { active: false, revealed: false, item: null, lastAlg: null, start: 0, elapsed: 0, raf: 0, done: 0, knew: 0 };
 
 renderList();
 
@@ -1135,7 +1347,8 @@ function updateCamera() {
     spherical.radius * Math.sin(spherical.phi),
     spherical.radius * Math.cos(spherical.phi) * Math.cos(spherical.theta)
   );
-  camera.lookAt(0, 0, 0);
+  // Drill: aim a little higher so the cube sits below the timer overlay
+  camera.lookAt(0, drill.active ? 0.6 : 0, 0);
 }
 
 function resetCameraPosition(animate = true) {
@@ -1365,8 +1578,9 @@ const modalAlgName = document.getElementById('modal-alg-name');
 
 function isMobile() { return window.innerWidth <= 700; }
 
-function openMobileModal() {
-  if (!mainEl.classList.contains('modal-open')) history.pushState({ modal: true }, '');
+function openMobileModal(url) {
+  if (!mainEl.classList.contains('modal-open')) history.pushState({ modal: true }, '', url);
+  else if (url) history.replaceState(history.state, '', url);
   mainEl.classList.add('modal-open');
   // Resize renderer after CSS transition
   setTimeout(resizeRenderer, 50);
@@ -1376,7 +1590,18 @@ function openMobileModal() {
 function closeMobileModal() {
   mainEl.classList.remove('modal-open');
   playing = false;
+  if (drill.active) leaveDrill();
   updateButtons();
+}
+
+// Camera to the home view; on phones, after the modal's slide-in settles
+function settleCamera() {
+  if (isMobile()) {
+    setTimeout(() => resetCameraPosition(false), 100);
+    setTimeout(() => resetCameraPosition(false), 400);
+  } else {
+    resetCameraPosition(true);
+  }
 }
 
 modalCloseBtn.addEventListener('click', () => {
@@ -1468,7 +1693,7 @@ async function goToStep(targetIndex) {
 // Buttons stay enabled while a move animates: a tap on a disabled button
 // falls through to the page, which iOS treats as a double-tap zoom.
 function updateButtons() {
-  const done = moveIndex >= moveTokens.length;
+  const done = !!currentAlg && moveIndex >= moveTokens.length;
   btnPlay.disabled = !currentAlg;
   btnStep.disabled = !currentAlg || done;
   btnBack.disabled = !currentAlg || moveIndex === 0;
@@ -1546,7 +1771,7 @@ async function playAll() {
 function resetCube() {
   playing = false;
   animating = false;
-  moveTokens = tokenize(getAlgString(currentAlg));
+  moveTokens = drill.active ? drill.item.tokens : tokenize(getAlgString(currentAlg));
   moveIndex = 0;
   buildCube();
   applySetup();
@@ -1596,6 +1821,7 @@ function getInverse(tokens) {
 }
 
 function selectAlg(alg, cardEl) {
+  exitDrill();
   if (selectedCard) selectedCard.classList.remove('selected', 'pll-selected');
   cardEl.classList.add('selected');
   if (currentTab === 'pll') cardEl.classList.add('pll-selected');
@@ -1614,15 +1840,188 @@ function selectAlg(alg, cardEl) {
   updateDisplay();
   updateButtons();
 
+  const link = linkFor(alg, chosenVariants[alg.name] || 0);
+  progress.last = link;
+  saveProgress();
+
   // Mobile: open modal, then reset camera after layout settles
   if (isMobile()) {
     modalAlgName.textContent = alg.name;
-    openMobileModal();
-    setTimeout(() => resetCameraPosition(false), 100);
-    setTimeout(() => resetCameraPosition(false), 400);
+    openMobileModal(link);
   } else {
-    resetCameraPosition(true);
+    history.replaceState(history.state, '', link);
   }
+  settleCamera();
+}
+
+// ═══════════════════════════════════════════
+//  DRILL MODE
+// ═══════════════════════════════════════════
+// Shows a random case of the current tab from a random angle, times how long
+// recognition takes, then reveals the answer (playable on the cube) to self-grade.
+
+const drillLabelEl = document.getElementById('drill-label');
+const drillTimerEl = document.getElementById('drill-timer');
+const drillAnswerEl = document.getElementById('drill-answer');
+const AUFS = ['', 'U', 'U2', "U'"];
+const DRILL_WEIGHT = { new: 2, learning: 3, known: 1 };
+
+const fmtTime = ms => (ms / 1000).toFixed(2) + 's';
+
+function pickDrillItem() {
+  const all = ALGS_BY_TAB[currentTab].flatMap(section => section.algs);
+  let pool = drillFocusEl.checked ? all.filter(a => statusOf(a) !== 'known') : all;
+  if (!pool.length) pool = all; // everything is Known: drill it all
+  if (pool.length > 1) pool = pool.filter(a => a !== drill.lastAlg);
+
+  let r = Math.random() * pool.reduce((sum, a) => sum + DRILL_WEIGHT[statusOf(a)], 0);
+  const alg = pool.find(a => (r -= DRILL_WEIGHT[statusOf(a)]) < 0) || pool[pool.length - 1];
+  const vi = Math.floor(Math.random() * alg.variants.length);
+  const auf = AUFS[Math.floor(Math.random() * AUFS.length)];
+  // The solution starts with the U turn that undoes the random angle
+  return { alg, vi, tokens: [...(auf ? [auf] : []), ...tokenize(alg.variants[vi].alg)] };
+}
+
+function startDrill() {
+  if (selectedCard) selectedCard.classList.remove('selected', 'pll-selected');
+  selectedCard = null;
+  Object.assign(drill, { active: true, done: 0, knew: 0, lastAlg: null });
+  mainEl.classList.add('drill-mode');
+  placeholder.style.display = 'none';
+  const link = `#drill/${currentTab}`;
+  if (isMobile()) openMobileModal(link);
+  else history.replaceState(history.state, '', link);
+  nextDrillCase();
+}
+
+function nextDrillCase() {
+  const item = pickDrillItem();
+  Object.assign(drill, { item, lastAlg: item.alg, revealed: false });
+  mainEl.classList.remove('drill-revealed');
+  modalAlgName.textContent = 'Drill';
+
+  currentAlg = item.alg;
+  displayMode = currentTab;
+  moveTokens = item.tokens;
+  moveIndex = 0;
+  playing = false;
+  animating = false;
+  buildCube();
+  applySetup();
+  updateDisplay();
+  updateButtons();
+  settleCamera();
+
+  drill.start = performance.now();
+  cancelAnimationFrame(drill.raf);
+  tickDrillTimer();
+  renderDrillHud();
+}
+
+function tickDrillTimer() {
+  drillTimerEl.textContent = fmtTime(performance.now() - drill.start);
+  drill.raf = requestAnimationFrame(tickDrillTimer);
+}
+
+function renderDrillHud() {
+  const { alg, vi } = drill.item;
+  drillLabelEl.textContent = `Drill · ${currentTab.toUpperCase()} · ${drill.done} done · ${drill.knew} ✓`;
+  if (!drill.revealed) {
+    drillAnswerEl.textContent = 'Which case is this?';
+    return;
+  }
+  const best = progress.best[alg.key];
+  const meta = statusOf(alg) === 'known'
+    ? `Known${best ? ' · best ' + fmtTime(best) : ''}`
+    : `streak ${progress.streak[alg.key] || 0}/${KNOWN_AFTER}${best ? ' · best ' + fmtTime(best) : ''}`;
+  drillAnswerEl.innerHTML = `<b>${alg.name}</b> · ${alg.variants[vi].label}<span class="meta">${meta}</span>`;
+}
+
+function revealDrill() {
+  if (!drill.active || drill.revealed) return;
+  drill.revealed = true;
+  drill.elapsed = performance.now() - drill.start;
+  cancelAnimationFrame(drill.raf);
+  drillTimerEl.textContent = fmtTime(drill.elapsed);
+  mainEl.classList.add('drill-revealed');
+  modalAlgName.textContent = drill.item.alg.name;
+  document.activeElement?.blur();
+  renderDrillHud();
+  updateDisplay();
+  updateButtons();
+}
+
+function gradeDrill(knew) {
+  if (!drill.active || !drill.revealed) return;
+  const { alg } = drill.item;
+  if (knew) {
+    progress.streak[alg.key] = (progress.streak[alg.key] || 0) + 1;
+    if (!progress.best[alg.key] || drill.elapsed < progress.best[alg.key])
+      progress.best[alg.key] = Math.round(drill.elapsed);
+    if (progress.streak[alg.key] >= KNOWN_AFTER) setStatus(alg, 'known');
+    else if (statusOf(alg) === 'new') setStatus(alg, 'learning');
+    drill.knew++;
+  } else {
+    progress.streak[alg.key] = 0;
+    setStatus(alg, 'learning');
+  }
+  drill.done++;
+  saveProgress();
+  const scroll = algListEl.scrollTop;
+  renderList();
+  algListEl.scrollTop = scroll;
+  document.activeElement?.blur();
+  nextDrillCase();
+}
+
+// Leave drill state (the caller decides what the cube shows next)
+function exitDrill() {
+  if (!drill.active) return;
+  drill.active = false;
+  cancelAnimationFrame(drill.raf);
+  mainEl.classList.remove('drill-mode', 'drill-revealed');
+}
+
+// Leave drill back to the idle "pick a case" view
+function leaveDrill() {
+  exitDrill();
+  currentAlg = null;
+  moveTokens = [];
+  moveIndex = 0;
+  playing = false;
+  displayMode = 'full';
+  buildCube();
+  updateDisplay();
+  updateButtons();
+  resetCameraPosition(true);
+  placeholder.style.display = '';
+  history.replaceState(history.state, '', location.pathname);
+}
+
+btnDrill.addEventListener('click', startDrill);
+document.getElementById('btn-reveal').addEventListener('click', revealDrill);
+document.getElementById('btn-knew').addEventListener('click', () => gradeDrill(true));
+document.getElementById('btn-missed').addEventListener('click', () => gradeDrill(false));
+document.getElementById('btn-drill-exit').addEventListener('click', leaveDrill);
+
+// Open a link like #oll/sune, #pll/adj-corner-swap/j-perm-b or #drill/pll
+function openLink(hash) {
+  const [tab, algSlug, varSlug] = hash.replace(/^#/, '').split('/');
+  if (tab === 'drill') {
+    switchTab(ALGS_BY_TAB[algSlug] ? algSlug : 'oll');
+    startDrill();
+    return;
+  }
+  if (!ALGS_BY_TAB[tab]) return;
+  switchTab(tab);
+  const alg = ALGS_BY_TAB[tab].flatMap(section => section.algs).find(a => slug(a.name) === algSlug);
+  if (!alg) return;
+  const vi = alg.variants.findIndex(v => slug(v.label) === varSlug);
+  if (vi > 0) chosenVariants[alg.name] = vi;
+  renderList();
+  const card = [...algListEl.querySelectorAll('.alg-card')].find(c => c.dataset.algName === alg.name);
+  selectAlg(alg, card);
+  card.scrollIntoView({ block: 'nearest' });
 }
 
 btnPlay.addEventListener('click', () => {
@@ -1634,8 +2033,15 @@ btnBack.addEventListener('click', doStepBack);
 btnReset.addEventListener('click', resetCube);
 
 // Keyboard: Space = play/pause, ←/→ = step back/forward
+// Drill: Space/Enter = reveal, then Enter = knew it, Backspace = missed
 window.addEventListener('keydown', e => {
   if (!currentAlg || e.target.closest('button, input, .alg-card')) return;
+  if (drill.active && !drill.revealed) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealDrill(); }
+    return;
+  }
+  if (drill.active && e.key === 'Enter') { e.preventDefault(); gradeDrill(true); return; }
+  if (drill.active && e.key === 'Backspace') { e.preventDefault(); gradeDrill(false); return; }
   if (e.key === ' ') { e.preventDefault(); btnPlay.click(); }
   else if (e.key === 'ArrowRight') doStep();
   else if (e.key === 'ArrowLeft') doStepBack();
@@ -1653,6 +2059,10 @@ function render() {
 render();
 
 window.addEventListener('resize', resizeRenderer);
+
+// Start from a shared link, else (desktop) reopen the last case
+if (location.hash) openLink(location.hash);
+else if (!isMobile() && progress.last) openLink(progress.last);
 </script>
 </body>
 </html>
