@@ -9,6 +9,11 @@
 <title>Two-Look OLL & PLL — 3D Cube Trainer</title>
 <meta name="description" content="Learn beginner two-look OLL and PLL on an interactive 3D Rubik's cube: pick a case, choose an algorithm, and step through it move by move.">
 <meta name="theme-color" content="#0c0c0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cube Trainer">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:type" content="website">
@@ -23,7 +28,7 @@
   * { margin:0; padding:0; box-sizing:border-box; }
 
   /* No double-tap zoom anywhere (fast taps on Step used to zoom on iOS) */
-  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; background: var(--bg); }
   button, .alg-card { -webkit-tap-highlight-color: transparent; }
 
   :root {
@@ -55,6 +60,7 @@
 
   /* ── Sidebar ── */
   #sidebar {
+    padding-left: env(safe-area-inset-left);
     width: 370px;
     min-width: 370px;
     background: var(--panel);
@@ -225,7 +231,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 14px 30px;
+    padding: 14px calc(30px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) 30px;
     user-select: none;
     -webkit-user-select: none;
   }
@@ -343,9 +349,7 @@
     color: var(--pll-color);
   }
 
-  /* ── Progress ── */
-  .tab-count { font-weight: 400; opacity: .55; margin-left: 4px; }
-
+  /* ── Case stats on the list ── */
   .alg-name-row {
     display: flex;
     align-items: center;
@@ -355,70 +359,134 @@
   }
   .alg-name-row .alg-name { margin-bottom: 0; }
 
-  .status-btn {
+  .badge {
     flex-shrink: 0;
     padding: 2px 8px;
     border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge.slow { color: var(--red); background: #f8717122; border: 1px solid #f8717166; }
+  .badge.reps { color: var(--accent); background: var(--accent-dim); border: 1px solid #f7c94866; }
+  .badge.off { color: var(--text-dim); border: 1px solid var(--border); }
+
+  .case-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .case-stats {
+    flex: 1 1 100%;
+    min-width: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip-btn {
+    flex-shrink: 0;
+    padding: 3px 8px;
     border: 1px solid var(--border);
+    border-radius: 5px;
     background: transparent;
     color: var(--text-dim);
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
-    font-weight: 600;
     cursor: pointer;
+    white-space: nowrap;
   }
-  .status-btn[data-status=learning] { border-color: var(--accent); color: var(--accent); }
-  .status-btn[data-status=known] { border-color: var(--green); color: var(--green); background: #4ade8018; }
+  .chip-btn.time { color: var(--text); }
+  .alg-card.excluded .alg-mini-cube, .alg-card.excluded .alg-name { opacity: .45; }
 
-  /* ── Drill ── */
-  .drill-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  #focus-banner {
+    margin: 0 10px 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  #focus-banner b { color: var(--text); font-weight: 600; }
+  #focus-banner:empty { display: none; }
+
+  #btn-timer {
+    width: 100%;
     margin-top: 10px;
-  }
-
-  #btn-drill {
-    flex: 1;
-    padding: 9px 0;
+    padding: 10px 0;
     border: 1px solid var(--accent);
     border-radius: 8px;
     background: var(--accent-dim);
     color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.5px;
     cursor: pointer;
   }
-  #btn-drill.pll { border-color: var(--pll-color); background: #48c9f720; color: var(--pll-color); }
 
-  .focus-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-dim);
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .focus-toggle input { accent-color: var(--accent); }
-
-  #drill-hud {
+  /* ── Timer ── */
+  #trainer {
     display: none;
     position: absolute;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: calc(100% - 32px);
-    text-align: center;
-    pointer-events: none;
-    z-index: 5;
+    inset: 0;
+    z-index: 20;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px calc(28px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) 28px;
+    background: var(--bg);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    overflow: hidden;
   }
-  #main.drill-mode #drill-hud { display: block; }
+  #main.trainer-mode #trainer { display: flex; }
 
-  #drill-label {
+  .tr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .seg {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  .seg button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--card); color: var(--text); box-shadow: 0 2px 8px #0004; }
+
+  #tr-focus {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #tr-focus.on { display: flex; }
+
+  .tr-label {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 700;
@@ -427,30 +495,89 @@
     color: var(--text-dim);
   }
 
-  #drill-timer {
+  #tr-scramble {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 34px;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.5;
+    word-spacing: 4px;
+  }
+
+  #tr-hint {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+  #tr-hint.on { display: flex; }
+  #tr-hint svg { width: 72px; height: 72px; flex-shrink: 0; }
+  #tr-hint .name { font-weight: 600; }
+  #tr-hint .alg { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  #tr-pad {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 16px;
+    cursor: pointer;
+  }
+
+  #tr-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(56px, 14vw, 104px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    line-height: 1;
+    transition: color .1s;
   }
+  #trainer.holding #tr-time { color: var(--red); }
+  #trainer.ready #tr-time { color: var(--green); }
+  #tr-help { font-size: 13px; color: var(--text-dim); text-align: center; }
 
-  #drill-answer { font-size: 15px; min-height: 22px; }
-  #drill-answer .meta {
-    display: block;
-    margin-top: 2px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+  /* While solving, only the time is shown */
+  #main.timing #modal-close, #main.timing #modal-alg-name { visibility: hidden; }
+  #trainer.running > :not(#tr-pad) { visibility: hidden; }
+  #trainer.running #tr-help { visibility: hidden; }
+
+  #tr-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .stat {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  .stat .v { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; margin-top: 2px; }
+
+  #tr-recent { display: flex; flex-direction: column; gap: 2px; max-height: 150px; overflow-y: auto; }
+  .solve-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 4px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .solve-row .t { font-family: 'JetBrains Mono', monospace; font-weight: 700; width: 64px; }
+  .solve-row .c { flex: 1; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .solve-row button {
+    border: none;
+    background: transparent;
     color: var(--text-dim);
+    font-size: 14px;
+    padding: 4px 8px;
+    cursor: pointer;
   }
-
-  #drill-actions { display: none; gap: 8px; }
-  #main.drill-mode #drill-actions { display: flex; }
-  #main.drill-mode:not(.drill-revealed) #alg-display,
-  #main.drill-mode:not(.drill-revealed) .btn-row { display: none; }
-  #main.drill-revealed #btn-reveal,
-  #main:not(.drill-revealed) .grade-btn { display: none; }
-  .ctrl-btn.good { border-color: var(--green); color: var(--green); }
-  .ctrl-btn.bad { border-color: var(--red); color: var(--red); }
 
   /* ── Mobile modal close button ── */
   #modal-close {
@@ -502,14 +629,33 @@
 
   /* ═══ MOBILE ═══ */
   @media (max-width: 700px) {
-    body { flex-direction: column; }
+    /* The list scrolls the page itself, so iOS Safari can shrink its
+       toolbar and run edge to edge; the open modal locks it again */
+    body { display: block; height: auto; overflow: visible; }
+    body.modal-lock { overflow: hidden; }
 
     #sidebar {
       width: 100%;
       min-width: 0;
-      height: 100vh;
-      height: 100dvh;
+      height: auto;
+      min-height: 100dvh;
+      padding-left: 0;
       border-right: none;
+    }
+
+    #sidebar-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: var(--panel);
+      padding: calc(env(safe-area-inset-top) + 14px) calc(env(safe-area-inset-right) + 16px) 12px calc(env(safe-area-inset-left) + 16px);
+    }
+    #sidebar-header h1 { margin-bottom: 10px; }
+
+    #alg-list {
+      flex: none;
+      overflow: visible;
+      padding: 12px calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 28px) calc(env(safe-area-inset-left) + 10px);
     }
 
     /* Main panel is a fullscreen modal on mobile */
@@ -526,19 +672,22 @@
       transform: translateY(0);
     }
 
-    #modal-close { display: flex; top: max(12px, env(safe-area-inset-top)); }
+    #modal-close {
+      display: flex;
+      top: calc(env(safe-area-inset-top) + 10px);
+      right: calc(env(safe-area-inset-right) + 12px);
+    }
     #modal-alg-name {
       display: block;
-      top: max(14px, env(safe-area-inset-top));
-      max-width: calc(100% - 90px);
+      top: calc(env(safe-area-inset-top) + 14px);
+      left: calc(env(safe-area-inset-left) + 14px);
+      max-width: calc(100% - 90px - env(safe-area-inset-left) - env(safe-area-inset-right));
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     #modal-close { width: 44px; height: 44px; }
 
-    #sidebar-header { padding-top: max(20px, env(safe-area-inset-top)); }
-    #alg-list { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
     .tab-btn { padding: 11px 0; font-size: 13px; }
     .variant-btn { padding: 7px 11px; font-size: 11px; }
 
@@ -546,8 +695,7 @@
 
     #controls {
       height: auto;
-      padding: 12px 16px;
-      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      padding: 12px calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 16px);
       gap: 8px;
     }
 
@@ -582,12 +730,22 @@
     }
     .speed-ctrl input[type=range] { width: 160px; }
 
-    .status-btn { padding: 5px 10px; font-size: 11px; }
-    #btn-drill { padding: 12px 0; font-size: 13px; }
-    #drill-hud { top: calc(max(14px, env(safe-area-inset-top)) + 54px); }
-    #drill-actions { width: 100%; }
-    #drill-actions .ctrl-btn { flex: 1; min-height: 46px; }
-    #btn-drill-exit { display: none; }
+    .chip-btn { padding: 7px 10px; font-size: 11px; }
+    .badge { padding: 3px 9px; font-size: 11px; }
+    #btn-timer { padding: 13px 0; font-size: 14px; }
+
+    #trainer {
+      gap: 12px;
+      padding: calc(env(safe-area-inset-top) + 66px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 14px) calc(env(safe-area-inset-left) + 16px);
+    }
+    .seg { flex: 1; }
+    .seg button { flex: 1; padding: 10px 0; font-size: 13px; }
+    #tr-scramble { font-size: 19px; }
+    #tr-exit { display: none; }
+    #tr-stats { gap: 6px; }
+    .stat { padding: 6px 8px; }
+    .stat .v { font-size: 14px; }
+    #tr-recent { max-height: 104px; }
   }
 </style>
 </head>
@@ -597,15 +755,10 @@
   <div id="sidebar-header">
     <h1>🧊 Two-Look <span>OLL</span> & <span>PLL</span></h1>
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="oll">OLL<span class="tab-count"></span></button>
-      <button class="tab-btn" data-tab="pll">PLL<span class="tab-count"></span></button>
+      <button class="tab-btn active" data-tab="oll">OLL</button>
+      <button class="tab-btn" data-tab="pll">PLL</button>
     </div>
-    <div class="drill-row">
-      <button id="btn-drill">⚡ Drill OLL cases</button>
-      <label class="focus-toggle" title="Only drill cases not yet marked Known">
-        <input type="checkbox" id="drill-focus" checked> Skip known
-      </label>
-    </div>
+    <button id="btn-timer">⏱ Timer &amp; scrambles</button>
   </div>
   <div id="alg-list"></div>
 </div>
@@ -615,13 +768,34 @@
   <button id="modal-close">✕</button>
   <div id="cube-container">
     <div id="placeholder">
-      <p>Pick a case, or press Drill to practise</p>
+      <p>Pick a case, or open the Timer to practise</p>
     </div>
-    <div id="drill-hud">
-      <div id="drill-label"></div>
-      <div id="drill-timer">0.00s</div>
-      <div id="drill-answer"></div>
+  </div>
+  <div id="trainer">
+    <div class="tr-row">
+      <div class="seg" id="tr-mode">
+        <button data-mode="oll">OLL</button>
+        <button data-mode="ll">OLL + PLL</button>
+        <button data-mode="pll">PLL</button>
+      </div>
+      <button class="ctrl-btn" id="tr-exit">✕ Close timer</button>
     </div>
+    <button id="tr-focus" title="Back to random cases"></button>
+    <div>
+      <div class="tr-label">Scramble · yellow on top, green in front</div>
+      <div id="tr-scramble"></div>
+    </div>
+    <div class="tr-row">
+      <button class="chip-btn" id="tr-new">↻ New scramble</button>
+      <button class="chip-btn" id="tr-show">Show case</button>
+    </div>
+    <div id="tr-hint"></div>
+    <div id="tr-pad">
+      <div id="tr-time">0.00</div>
+      <div id="tr-help"></div>
+    </div>
+    <div id="tr-stats"></div>
+    <div id="tr-recent"></div>
   </div>
   <div id="controls">
     <div id="alg-display"></div>
@@ -634,12 +808,6 @@
         <span>Speed</span>
         <input type="range" id="speed" min="1" max="10" value="5">
       </div>
-    </div>
-    <div id="drill-actions">
-      <button class="ctrl-btn" id="btn-drill-exit">Exit drill</button>
-      <button class="ctrl-btn primary" id="btn-reveal" title="Space">Reveal</button>
-      <button class="ctrl-btn grade-btn bad" id="btn-missed" title="Backspace">✗ Missed</button>
-      <button class="ctrl-btn grade-btn good" id="btn-knew" title="Enter">✓ Knew it</button>
     </div>
   </div>
 </div>
@@ -837,10 +1005,14 @@ const PLL_ALGS = [
 const ALGS_BY_TAB = { oll: OLL_ALGS, pll: PLL_ALGS };
 const slug = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+const ALG_BY_KEY = {};
 for (const [tab, data] of Object.entries(ALGS_BY_TAB))
-  data.forEach(section => section.algs.forEach(alg => {
+  data.forEach((section, si) => section.algs.forEach(alg => {
     alg.tab = tab;
+    alg.step = si + 1; // 1 = first look (OLL edges / PLL corners), 2 = second look
+    alg.edgesOnly = !!section.edgesOnly;
     alg.key = `${tab}/${slug(alg.name)}`;
+    ALG_BY_KEY[alg.key] = alg;
   }));
 
 // Shareable link: #oll/sune or #pll/adj-corner-swap/j-perm-b
@@ -848,28 +1020,57 @@ function linkFor(alg, vi) {
   return `#${alg.key}` + (vi ? `/${slug(alg.variants[vi].label)}` : '');
 }
 
-// Saved per browser: status / streak / best time per case, last link, drill filter
-const STORE_KEY = 'cube-trainer-v1';
-const STATUSES = ['new', 'learning', 'known'];
-const STATUS_LABEL = { new: 'New', learning: 'Learning', known: 'Known ✓' };
-const KNOWN_AFTER = 3; // correct drills in a row to mark a case Known
+// Saved per browser: every timed solve, cases left out of scrambles,
+// last timer mode and last opened case
+const STORE_KEY = 'cube-trainer-v2';
 
-function loadProgress() {
-  const empty = { status: {}, streak: {}, best: {}, last: null, focus: true };
+function loadStore() {
+  const empty = { solves: [], excluded: {}, mode: 'oll', last: null };
   try { return { ...empty, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; }
   catch { return empty; }
 }
-const progress = loadProgress();
+const store = loadStore();
 
-function saveProgress() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); } catch {}
+function saveStore() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {}
 }
 
-function statusOf(alg) { return progress.status[alg.key] || 'new'; }
+const fmtTime = ms => (ms / 1000).toFixed(2);
+const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
 
-function setStatus(alg, status) {
-  if (status === 'new') delete progress.status[alg.key];
-  else progress.status[alg.key] = status;
+// Average of the last n with best and worst dropped (the cubing "ao5/ao12")
+function aoN(times, n) {
+  if (times.length < n) return null;
+  const sorted = times.slice(-n).sort((a, b) => a - b);
+  return mean(sorted.slice(1, -1));
+}
+
+const isIncluded = alg => !store.excluded[alg.key];
+
+// Per-case stats come from OLL-only / PLL-only solves, where the starting
+// case is known; in OLL + PLL the PLL you get depends on how you solved OLL
+const MIN_SOLVES = 3;
+
+function caseStats(alg) {
+  const times = store.solves.filter(sv => sv.mode !== 'll' && sv.case === alg.key).map(sv => sv.ms);
+  return {
+    count: times.length,
+    best: times.length ? Math.min(...times) : null,
+    avg: times.length ? mean(times.slice(-5)) : null, // mean of the last 5
+  };
+}
+
+// Which cases of a tab need work: too few solves, or among the slowest third
+function focusFor(tab) {
+  const algs = ALGS_BY_TAB[tab].flatMap(section => section.algs).filter(isIncluded);
+  const stats = new Map(algs.map(a => [a, caseStats(a)]));
+  const rated = algs.filter(a => stats.get(a).count >= MIN_SOLVES)
+    .sort((a, b) => stats.get(b).avg - stats.get(a).avg);
+  const slow = rated.length >= 2 ? rated.slice(0, Math.max(1, Math.floor(rated.length / 3))) : [];
+  // Nudge for reps only once this tab has been timed at all
+  const started = algs.some(a => stats.get(a).count > 0);
+  const reps = started ? algs.filter(a => stats.get(a).count < MIN_SOLVES) : [];
+  return { stats, slow: new Set(slow), reps: new Set(reps) };
 }
 
 // ═══════════════════════════════════════════
@@ -969,10 +1170,10 @@ const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#dc1f3c', B:'#3b82f6', L:'#
 
 // kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors.
 // edgesOnly: step-1 OLL, where corners don't matter and are drawn neutral.
-function createIconSvg(algStr, kind, edgesOnly) {
+function createIconSvg(algStr, kind, edgesOnly, size = 48) {
   const { total, cs } = ICON;
   const sticker = topLayerFor(algStr);
-  let svg = `<svg width="48" height="48" viewBox="0 0 ${total} ${total}" xmlns="http://www.w3.org/2000/svg">`;
+  let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${total} ${total}" xmlns="http://www.w3.org/2000/svg">`;
 
   for (let r = 0; r < 3; r++)
     for (let c = 0; c < 3; c++) {
@@ -1012,9 +1213,35 @@ function getAlgString(alg) {
   return alg.variants[idx].alg;
 }
 
+function caseBadge(alg, focus) {
+  if (!isIncluded(alg)) return '<span class="badge off">Not in scrambles</span>';
+  if (focus.slow.has(alg)) return '<span class="badge slow">Slowest</span>';
+  if (focus.reps.has(alg)) return `<span class="badge reps">Needs reps ${focus.stats.get(alg).count}/${MIN_SOLVES}</span>`;
+  return '';
+}
+
+function caseStatsText(st) {
+  if (!st.count) return 'No timed solves yet';
+  return `avg ${fmtTime(st.avg)} · best ${fmtTime(st.best)} · ${st.count}×`;
+}
+
+// "Work on" summary at the top of the list
+function renderFocusBanner(focus) {
+  const banner = document.createElement('div');
+  banner.id = 'focus-banner';
+  const names = set => [...set].map(a => a.name.replace(/ \(.*\)/, ''));
+  const parts = [];
+  if (focus.slow.size) parts.push(`Slowest: <b>${names(focus.slow).join(', ')}</b>`);
+  if (focus.reps.size) parts.push(`Needs reps: <b>${focus.reps.size}</b> case${focus.reps.size > 1 ? 's' : ''}`);
+  banner.innerHTML = parts.join('<br>');
+  algListEl.appendChild(banner);
+}
+
 function renderList() {
+  const scroll = algListEl.scrollTop;
   algListEl.innerHTML = '';
-  updateTabCounts();
+  const focus = focusFor(currentTab);
+  renderFocusBanner(focus);
   ALGS_BY_TAB[currentTab].forEach(section => {
     const title = document.createElement('div');
     title.className = 'alg-section-title';
@@ -1040,33 +1267,42 @@ function renderList() {
       });
       variantsHtml += '</div>';
 
+      if (!isIncluded(alg)) card.classList.add('excluded');
       card.innerHTML = `
         <div class="alg-mini-cube">${svgHtml}</div>
         <div class="alg-info">
           <div class="alg-name-row">
             <div class="alg-name">${alg.name}</div>
-            <button class="status-btn" data-status="${statusOf(alg)}" title="Tap to change: New → Learning → Known">${STATUS_LABEL[statusOf(alg)]}</button>
+            ${caseBadge(alg, focus)}
           </div>
           <div class="alg-moves">${alg.variants[varIdx].alg}</div>
           ${variantsHtml}
+          <div class="case-foot">
+            <div class="case-stats">${caseStatsText(focus.stats.get(alg) || caseStats(alg))}</div>
+            <button class="chip-btn time" data-act="time" title="Timer with scrambles for this case only">⏱ Time it</button>
+            <button class="chip-btn" data-act="mix" title="Use this case in random scrambles">${isIncluded(alg) ? '✓ In mix' : '○ Off'}</button>
+          </div>
         </div>`;
 
       // Click card body → select this alg
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.variant-btn, .status-btn')) return;
+        if (e.target.closest('.variant-btn, .chip-btn')) return;
         selectAlg(alg, card);
       });
 
-      // Click status pill → cycle New → Learning → Known
-      card.querySelector('.status-btn').addEventListener('click', (e) => {
+      card.querySelector('[data-act=time]').addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = STATUSES[(STATUSES.indexOf(statusOf(alg)) + 1) % STATUSES.length];
-        setStatus(alg, next);
-        progress.streak[alg.key] = 0;
-        saveProgress();
-        e.currentTarget.dataset.status = next;
-        e.currentTarget.textContent = STATUS_LABEL[next];
-        updateTabCounts();
+        startTrainer({ mode: alg.tab, focus: alg });
+      });
+
+      // Toggle whether random scrambles may use this case
+      card.querySelector('[data-act=mix]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isIncluded(alg)) store.excluded[alg.key] = true;
+        else delete store.excluded[alg.key];
+        saveStore();
+        renderList();
+        if (trainer.active && !trainer.focus) newScramble();
       });
 
       card.addEventListener('keydown', (e) => {
@@ -1098,8 +1334,7 @@ function renderList() {
         });
       });
 
-      // In a drill, highlighting the current case would give the answer away
-      if (alg === currentAlg && !drill.active) {
+      if (alg === currentAlg) {
         card.classList.add('selected');
         if (isPll) card.classList.add('pll-selected');
         selectedCard = card;
@@ -1108,35 +1343,21 @@ function renderList() {
       algListEl.appendChild(card);
     });
   });
-}
-
-function updateTabCounts() {
-  tabBtns.forEach(btn => {
-    const algs = ALGS_BY_TAB[btn.dataset.tab].flatMap(section => section.algs);
-    const known = algs.filter(a => statusOf(a) === 'known').length;
-    btn.querySelector('.tab-count').textContent = `${known}/${algs.length}`;
-  });
+  algListEl.scrollTop = scroll;
 }
 
 function switchTab(tab) {
-  if (drill.active) leaveDrill();
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   currentTab = tab;
   selectedCard = null;
-  btnDrill.textContent = `⚡ Drill ${tab.toUpperCase()} cases`;
-  btnDrill.classList.toggle('pll', tab === 'pll');
+  algListEl.scrollTop = 0;
   renderList();
 }
 
 tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
-const btnDrill = document.getElementById('btn-drill');
-const drillFocusEl = document.getElementById('drill-focus');
-drillFocusEl.checked = progress.focus;
-drillFocusEl.addEventListener('change', () => { progress.focus = drillFocusEl.checked; saveProgress(); });
-
-// Drill session state (logic lives under DRILL MODE)
-const drill = { active: false, revealed: false, item: null, lastAlg: null, start: 0, elapsed: 0, raf: 0, done: 0, knew: 0 };
+// Timer session state (logic lives under TIMER)
+const trainer = { active: false, mode: 'oll', focus: null, item: null, state: 'idle', holdTimeout: 0, start: 0, raf: 0, hint: false };
 
 renderList();
 
@@ -1347,8 +1568,7 @@ function updateCamera() {
     spherical.radius * Math.sin(spherical.phi),
     spherical.radius * Math.cos(spherical.phi) * Math.cos(spherical.theta)
   );
-  // Drill: aim a little higher so the cube sits below the timer overlay
-  camera.lookAt(0, drill.active ? 0.6 : 0, 0);
+  camera.lookAt(0, 0, 0);
 }
 
 function resetCameraPosition(animate = true) {
@@ -1581,6 +1801,7 @@ function isMobile() { return window.innerWidth <= 700; }
 function openMobileModal(url) {
   if (!mainEl.classList.contains('modal-open')) history.pushState({ modal: true }, '', url);
   else if (url) history.replaceState(history.state, '', url);
+  document.body.classList.add('modal-lock');
   mainEl.classList.add('modal-open');
   // Resize renderer after CSS transition
   setTimeout(resizeRenderer, 50);
@@ -1589,8 +1810,9 @@ function openMobileModal(url) {
 
 function closeMobileModal() {
   mainEl.classList.remove('modal-open');
+  document.body.classList.remove('modal-lock');
   playing = false;
-  if (drill.active) leaveDrill();
+  if (trainer.active) closeTrainer();
   updateButtons();
 }
 
@@ -1771,7 +1993,7 @@ async function playAll() {
 function resetCube() {
   playing = false;
   animating = false;
-  moveTokens = drill.active ? drill.item.tokens : tokenize(getAlgString(currentAlg));
+  moveTokens = tokenize(getAlgString(currentAlg));
   moveIndex = 0;
   buildCube();
   applySetup();
@@ -1821,7 +2043,7 @@ function getInverse(tokens) {
 }
 
 function selectAlg(alg, cardEl) {
-  exitDrill();
+  exitTrainer();
   if (selectedCard) selectedCard.classList.remove('selected', 'pll-selected');
   cardEl.classList.add('selected');
   if (currentTab === 'pll') cardEl.classList.add('pll-selected');
@@ -1841,8 +2063,8 @@ function selectAlg(alg, cardEl) {
   updateButtons();
 
   const link = linkFor(alg, chosenVariants[alg.name] || 0);
-  progress.last = link;
-  saveProgress();
+  store.last = link;
+  saveStore();
 
   // Mobile: open modal, then reset camera after layout settles
   if (isMobile()) {
@@ -1855,161 +2077,268 @@ function selectAlg(alg, cardEl) {
 }
 
 // ═══════════════════════════════════════════
-//  DRILL MODE
+//  TIMER
 // ═══════════════════════════════════════════
-// Shows a random case of the current tab from a random angle, times how long
-// recognition takes, then reveals the answer (playable on the cube) to self-grade.
+// Gives a scramble for a solved physical cube that sets up a random last-layer
+// case, then times the solve: hold 0.5s (red → green), release to start,
+// tap anywhere to stop. Solves are stored per mode and per starting case.
 
-const drillLabelEl = document.getElementById('drill-label');
-const drillTimerEl = document.getElementById('drill-timer');
-const drillAnswerEl = document.getElementById('drill-answer');
+const trainerEl = document.getElementById('trainer');
+const trScrambleEl = document.getElementById('tr-scramble');
+const trTimeEl = document.getElementById('tr-time');
+const trHelpEl = document.getElementById('tr-help');
+const trHintEl = document.getElementById('tr-hint');
+const trShowBtn = document.getElementById('tr-show');
+const trFocusBtn = document.getElementById('tr-focus');
+const trStatsEl = document.getElementById('tr-stats');
+const trRecentEl = document.getElementById('tr-recent');
+const MODE_LABEL = { oll: 'OLL', ll: 'OLL + PLL', pll: 'PLL' };
+const HOLD_MS = 500;
 const AUFS = ['', 'U', 'U2', "U'"];
-const DRILL_WEIGHT = { new: 2, learning: 3, known: 1 };
 
-const fmtTime = ms => (ms / 1000).toFixed(2) + 's';
+const pick = xs => xs[Math.floor(Math.random() * xs.length)];
+const randomAuf = () => { const a = pick(AUFS); return a ? [a] : []; };
 
-function pickDrillItem() {
-  const all = ALGS_BY_TAB[currentTab].flatMap(section => section.algs);
-  let pool = drillFocusEl.checked ? all.filter(a => statusOf(a) !== 'known') : all;
-  if (!pool.length) pool = all; // everything is Known: drill it all
-  if (pool.length > 1) pool = pool.filter(a => a !== drill.lastAlg);
-
-  let r = Math.random() * pool.reduce((sum, a) => sum + DRILL_WEIGHT[statusOf(a)], 0);
-  const alg = pool.find(a => (r -= DRILL_WEIGHT[statusOf(a)]) < 0) || pool[pool.length - 1];
-  const vi = Math.floor(Math.random() * alg.variants.length);
-  const auf = AUFS[Math.floor(Math.random() * AUFS.length)];
-  // The solution starts with the U turn that undoes the random angle
-  return { alg, vi, tokens: [...(auf ? [auf] : []), ...tokenize(alg.variants[vi].alg)] };
+// Scrambles use only face turns, so they're easy to apply by hand
+const FACE_TURN = /^[RUFLDB]['2]?$/;
+function faceTurnAlg(alg) {
+  const faceOnly = alg.variants.filter(v => tokenize(v.alg).every(t => FACE_TURN.test(t)));
+  return tokenize(pick(faceOnly.length ? faceOnly : alg.variants).alg);
 }
 
-function startDrill() {
+// Merge consecutive turns of the same face (U U2 → U', R R' → nothing)
+function simplify(tokens) {
+  const QUARTERS = { '': 1, '2': 2, "'": 3 };
+  const out = [];
+  tokens.forEach(tok => {
+    const last = out[out.length - 1];
+    if (last && last[0] === tok[0]) {
+      const q = (QUARTERS[last.slice(1)] + QUARTERS[tok.slice(1)]) % 4;
+      out.pop();
+      if (q) out.push(tok[0] + ['', '', '2', "'"][q]);
+    } else {
+      out.push(tok);
+    }
+  });
+  return out;
+}
+
+const casesOf = (tab, step) => ALGS_BY_TAB[tab][step - 1].algs;
+
+// Random starting case for a tab, weighted toward cases that need work
+function pickTarget(tab) {
+  if (trainer.focus && trainer.focus.tab === tab) return trainer.focus;
+  const all = ALGS_BY_TAB[tab].flatMap(section => section.algs);
+  let pool = all.filter(isIncluded);
+  if (!pool.length) pool = all;
+  const last = trainer.item?.targets.find(t => t.tab === tab);
+  if (pool.length > 1) pool = pool.filter(a => a !== last);
+  const focus = focusFor(tab);
+  const weight = a => (focus.slow.has(a) || focus.reps.has(a) ? 3 : 1);
+  let r = Math.random() * pool.reduce((sum, a) => sum + weight(a), 0);
+  return pool.find(a => (r -= weight(a)) < 0) || pool[pool.length - 1];
+}
+
+// One way to solve a tab's part starting from `target`: a first-look target
+// is followed by a random second-look case (or a skip) from the scramble mix
+function solvePart(target) {
+  const tokens = [...randomAuf(), ...faceTurnAlg(target), ...randomAuf()];
+  if (target.step === 1) {
+    const second = casesOf(target.tab, 2).filter(isIncluded);
+    const next = pick([null, ...(second.length ? second : casesOf(target.tab, 2))]);
+    if (next) tokens.push(...faceTurnAlg(next), ...randomAuf());
+  }
+  return tokens;
+}
+
+function makeItem(mode) {
+  const targets = mode === 'll' ? [pickTarget('oll'), pickTarget('pll')] : [pickTarget(mode)];
+  const solution = targets.flatMap(solvePart);
+  return { mode, targets, solution, scramble: simplify(getInverse(solution)) };
+}
+
+function newScramble() {
+  trainer.item = makeItem(trainer.mode);
+  trScrambleEl.textContent = trainer.item.scramble.join(' ');
+  setHint(false);
+}
+
+// "Show case": the last layer you should see after scrambling, as seen from above
+function setHint(on) {
+  trainer.hint = on;
+  trShowBtn.textContent = on ? 'Hide case' : 'Show case';
+  trHintEl.classList.toggle('on', on);
+  if (!on) return;
+  const { mode, targets, solution } = trainer.item;
+  const kind = mode === 'pll' ? 'pll' : 'oll';
+  const first = targets[0];
+  trHintEl.innerHTML = `
+    ${createIconSvg(solution.join(' '), kind, false, 72)}
+    <div>
+      <div class="name">${first.name}${first.step === 1 ? ' <span style="color:var(--text-dim)">(first look)</span>' : ''}</div>
+      <div class="alg">${first.variants[0].alg}</div>
+      ${mode === 'll' ? '<div class="alg">…then PLL</div>' : ''}
+    </div>`;
+}
+
+function setMode(mode) {
+  trainer.mode = mode;
+  if (trainer.focus && trainer.focus.tab !== mode) trainer.focus = null;
+  store.mode = mode;
+  saveStore();
+  document.querySelectorAll('#tr-mode button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  trFocusBtn.classList.toggle('on', !!trainer.focus);
+  trFocusBtn.textContent = trainer.focus ? `Only ${trainer.focus.name}  ✕` : '';
+  history.replaceState(history.state, '', `#timer/${mode}` + (trainer.focus ? `/${slug(trainer.focus.name)}` : ''));
+  newScramble();
+  renderTrainerStats();
+}
+
+function renderTrainerStats() {
+  const solves = store.solves.filter(sv => sv.mode === trainer.mode);
+  const times = solves.map(sv => sv.ms);
+  const cell = (label, v) => `<div class="stat"><div class="tr-label">${label}</div><div class="v">${v == null ? '–' : fmtTime(v)}</div></div>`;
+  trStatsEl.innerHTML = cell('Best', times.length ? Math.min(...times) : null) + cell('Ao5', aoN(times, 5))
+    + cell('Ao12', aoN(times, 12)) + `<div class="stat"><div class="tr-label">Solves</div><div class="v">${times.length}</div></div>`;
+
+  trRecentEl.innerHTML = '';
+  solves.slice(-12).reverse().forEach(sv => {
+    const row = document.createElement('div');
+    row.className = 'solve-row';
+    const names = sv.mode === 'll' ? (sv.cases || []).map(k => ALG_BY_KEY[k]?.name).join(' → ') : ALG_BY_KEY[sv.case]?.name;
+    row.innerHTML = `<span class="t">${fmtTime(sv.ms)}</span><span class="c">${names || ''}</span><button title="Delete this solve">✕</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      store.solves.splice(store.solves.indexOf(sv), 1);
+      saveStore();
+      renderTrainerStats();
+      renderList();
+    });
+    trRecentEl.appendChild(row);
+  });
+}
+
+function setTimerState(state) {
+  trainer.state = state;
+  trainerEl.classList.toggle('holding', state === 'holding');
+  trainerEl.classList.toggle('ready', state === 'ready');
+  trainerEl.classList.toggle('running', state === 'running');
+  mainEl.classList.toggle('timing', state === 'running');
+  trHelpEl.textContent = {
+    idle: isMobile() ? 'Hold anywhere, release to start' : 'Hold Space (or press here), release to start',
+    holding: 'Keep holding…',
+    ready: 'Release to start',
+    running: '',
+  }[state];
+}
+
+function pressDown() {
+  if (trainer.state === 'running') { stopTimer(); return; }
+  if (trainer.state !== 'idle') return;
+  setTimerState('holding');
+  trainer.holdTimeout = setTimeout(() => {
+    if (trainer.state !== 'holding') return;
+    trTimeEl.textContent = fmtTime(0);
+    setTimerState('ready');
+  }, HOLD_MS);
+}
+
+function pressUp() {
+  clearTimeout(trainer.holdTimeout);
+  if (trainer.state === 'ready') startTimer();
+  else if (trainer.state === 'holding') setTimerState('idle');
+}
+
+function startTimer() {
+  setTimerState('running');
+  trainer.start = performance.now();
+  const tick = () => {
+    trTimeEl.textContent = fmtTime(performance.now() - trainer.start);
+    trainer.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopTimer() {
+  cancelAnimationFrame(trainer.raf);
+  const ms = Math.round(performance.now() - trainer.start);
+  trTimeEl.textContent = fmtTime(ms);
+  const { mode, targets } = trainer.item;
+  store.solves.push(mode === 'll'
+    ? { ms, mode, cases: targets.map(t => t.key), at: Date.now() }
+    : { ms, mode, case: targets[0].key, at: Date.now() });
+  saveStore();
+  setTimerState('idle');
+  newScramble();
+  renderTrainerStats();
+  renderList();
+}
+
+function startTrainer({ mode = store.mode, focus = null } = {}) {
   if (selectedCard) selectedCard.classList.remove('selected', 'pll-selected');
   selectedCard = null;
-  Object.assign(drill, { active: true, done: 0, knew: 0, lastAlg: null });
-  mainEl.classList.add('drill-mode');
-  placeholder.style.display = 'none';
-  const link = `#drill/${currentTab}`;
-  if (isMobile()) openMobileModal(link);
-  else history.replaceState(history.state, '', link);
-  nextDrillCase();
-}
-
-function nextDrillCase() {
-  const item = pickDrillItem();
-  Object.assign(drill, { item, lastAlg: item.alg, revealed: false });
-  mainEl.classList.remove('drill-revealed');
-  modalAlgName.textContent = 'Drill';
-
-  currentAlg = item.alg;
-  displayMode = currentTab;
-  moveTokens = item.tokens;
-  moveIndex = 0;
+  currentAlg = null;
   playing = false;
-  animating = false;
-  buildCube();
-  applySetup();
-  updateDisplay();
-  updateButtons();
-  settleCamera();
-
-  drill.start = performance.now();
-  cancelAnimationFrame(drill.raf);
-  tickDrillTimer();
-  renderDrillHud();
+  trainer.active = true;
+  trainer.focus = focus;
+  mainEl.classList.add('trainer-mode');
+  modalAlgName.textContent = 'Timer';
+  if (isMobile()) openMobileModal();
+  setTimerState('idle');
+  trTimeEl.textContent = fmtTime(0);
+  setMode(ALGS_BY_TAB[mode] || mode === 'll' ? mode : 'oll');
 }
 
-function tickDrillTimer() {
-  drillTimerEl.textContent = fmtTime(performance.now() - drill.start);
-  drill.raf = requestAnimationFrame(tickDrillTimer);
+// Leave timer state (the caller decides what shows next)
+function exitTrainer() {
+  if (!trainer.active) return;
+  clearTimeout(trainer.holdTimeout);
+  cancelAnimationFrame(trainer.raf);
+  trainer.active = false;
+  setTimerState('idle');
+  mainEl.classList.remove('trainer-mode');
 }
 
-function renderDrillHud() {
-  const { alg, vi } = drill.item;
-  drillLabelEl.textContent = `Drill · ${currentTab.toUpperCase()} · ${drill.done} done · ${drill.knew} ✓`;
-  if (!drill.revealed) {
-    drillAnswerEl.textContent = 'Which case is this?';
-    return;
-  }
-  const best = progress.best[alg.key];
-  const meta = statusOf(alg) === 'known'
-    ? `Known${best ? ' · best ' + fmtTime(best) : ''}`
-    : `streak ${progress.streak[alg.key] || 0}/${KNOWN_AFTER}${best ? ' · best ' + fmtTime(best) : ''}`;
-  drillAnswerEl.innerHTML = `<b>${alg.name}</b> · ${alg.variants[vi].label}<span class="meta">${meta}</span>`;
-}
-
-function revealDrill() {
-  if (!drill.active || drill.revealed) return;
-  drill.revealed = true;
-  drill.elapsed = performance.now() - drill.start;
-  cancelAnimationFrame(drill.raf);
-  drillTimerEl.textContent = fmtTime(drill.elapsed);
-  mainEl.classList.add('drill-revealed');
-  modalAlgName.textContent = drill.item.alg.name;
-  document.activeElement?.blur();
-  renderDrillHud();
-  updateDisplay();
-  updateButtons();
-}
-
-function gradeDrill(knew) {
-  if (!drill.active || !drill.revealed) return;
-  const { alg } = drill.item;
-  if (knew) {
-    progress.streak[alg.key] = (progress.streak[alg.key] || 0) + 1;
-    if (!progress.best[alg.key] || drill.elapsed < progress.best[alg.key])
-      progress.best[alg.key] = Math.round(drill.elapsed);
-    if (progress.streak[alg.key] >= KNOWN_AFTER) setStatus(alg, 'known');
-    else if (statusOf(alg) === 'new') setStatus(alg, 'learning');
-    drill.knew++;
-  } else {
-    progress.streak[alg.key] = 0;
-    setStatus(alg, 'learning');
-  }
-  drill.done++;
-  saveProgress();
-  const scroll = algListEl.scrollTop;
-  renderList();
-  algListEl.scrollTop = scroll;
-  document.activeElement?.blur();
-  nextDrillCase();
-}
-
-// Leave drill state (the caller decides what the cube shows next)
-function exitDrill() {
-  if (!drill.active) return;
-  drill.active = false;
-  cancelAnimationFrame(drill.raf);
-  mainEl.classList.remove('drill-mode', 'drill-revealed');
-}
-
-// Leave drill back to the idle "pick a case" view
-function leaveDrill() {
-  exitDrill();
+// Close the timer back to the idle "pick a case" view
+function closeTrainer() {
+  exitTrainer();
   currentAlg = null;
   moveTokens = [];
-  moveIndex = 0;
-  playing = false;
   displayMode = 'full';
   buildCube();
   updateDisplay();
   updateButtons();
-  resetCameraPosition(true);
   placeholder.style.display = '';
   history.replaceState(history.state, '', location.pathname);
 }
 
-btnDrill.addEventListener('click', startDrill);
-document.getElementById('btn-reveal').addEventListener('click', revealDrill);
-document.getElementById('btn-knew').addEventListener('click', () => gradeDrill(true));
-document.getElementById('btn-missed').addEventListener('click', () => gradeDrill(false));
-document.getElementById('btn-drill-exit').addEventListener('click', leaveDrill);
+document.getElementById('btn-timer').addEventListener('click', () => startTrainer());
+document.getElementById('tr-exit').addEventListener('click', closeTrainer);
+document.getElementById('tr-new').addEventListener('click', newScramble);
+trShowBtn.addEventListener('click', () => setHint(!trainer.hint));
+trFocusBtn.addEventListener('click', () => { trainer.focus = null; setMode(trainer.mode); });
+document.querySelectorAll('#tr-mode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
-// Open a link like #oll/sune, #pll/adj-corner-swap/j-perm-b or #drill/pll
+// Anywhere on the timer screen (except its buttons) is the pad; while
+// running, any touch on the page stops the clock
+trainerEl.addEventListener('pointerdown', e => {
+  if (trainer.state !== 'running' && e.target.closest('button, #tr-recent')) return;
+  e.preventDefault();
+  pressDown();
+});
+window.addEventListener('pointerup', () => { if (trainer.active) pressUp(); });
+window.addEventListener('pointercancel', () => { if (trainer.active) pressUp(); });
+document.addEventListener('pointerdown', e => {
+  if (trainer.state === 'running' && !trainerEl.contains(e.target)) stopTimer();
+}, true);
+trainerEl.addEventListener('contextmenu', e => e.preventDefault());
+
+// Open a link like #oll/sune, #pll/adj-corner-swap/j-perm-b, #timer/ll or #timer/oll/sune
 function openLink(hash) {
   const [tab, algSlug, varSlug] = hash.replace(/^#/, '').split('/');
-  if (tab === 'drill') {
-    switchTab(ALGS_BY_TAB[algSlug] ? algSlug : 'oll');
-    startDrill();
+  if (tab === 'timer') {
+    const mode = ALGS_BY_TAB[algSlug] || algSlug === 'll' ? algSlug : store.mode;
+    const focus = ALGS_BY_TAB[mode]?.flatMap(section => section.algs).find(a => slug(a.name) === varSlug) || null;
+    startTrainer({ mode, focus });
     return;
   }
   if (!ALGS_BY_TAB[tab]) return;
@@ -2032,16 +2361,19 @@ btnStep.addEventListener('click', doStep);
 btnBack.addEventListener('click', doStepBack);
 btnReset.addEventListener('click', resetCube);
 
-// Keyboard: Space = play/pause, ←/→ = step back/forward
-// Drill: Space/Enter = reveal, then Enter = knew it, Backspace = missed
+// Timer: hold Space, release to start, any key stops
 window.addEventListener('keydown', e => {
-  if (!currentAlg || e.target.closest('button, input, .alg-card')) return;
-  if (drill.active && !drill.revealed) {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealDrill(); }
-    return;
-  }
-  if (drill.active && e.key === 'Enter') { e.preventDefault(); gradeDrill(true); return; }
-  if (drill.active && e.key === 'Backspace') { e.preventDefault(); gradeDrill(false); return; }
+  if (!trainer.active) return;
+  if (trainer.state === 'running') { e.preventDefault(); stopTimer(); return; }
+  if (e.key === ' ' && !e.repeat) { e.preventDefault(); document.activeElement?.blur(); pressDown(); }
+});
+window.addEventListener('keyup', e => {
+  if (trainer.active && e.key === ' ') { e.preventDefault(); pressUp(); }
+});
+
+// Keyboard: Space = play/pause, ←/→ = step back/forward
+window.addEventListener('keydown', e => {
+  if (trainer.active || !currentAlg || e.target.closest('button, input, .alg-card')) return;
   if (e.key === ' ') { e.preventDefault(); btnPlay.click(); }
   else if (e.key === 'ArrowRight') doStep();
   else if (e.key === 'ArrowLeft') doStepBack();
@@ -2062,7 +2394,7 @@ window.addEventListener('resize', resizeRenderer);
 
 // Start from a shared link, else (desktop) reopen the last case
 if (location.hash) openLink(location.hash);
-else if (!isMobile() && progress.last) openLink(progress.last);
+else if (!isMobile() && store.last) openLink(store.last);
 </script>
 </body>
 </html>
