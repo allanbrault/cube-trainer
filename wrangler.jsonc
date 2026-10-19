@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cube-oll-pll",
+  "compatibility_date": "2026-03-14",
+  "assets": {
+    "directory": "./public"
+  },
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "cube.lyuz.net", "custom_domain": true }
+  ]
+}
