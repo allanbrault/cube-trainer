@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <title>Two-Look OLL & PLL — 3D Cube Trainer</title>
 <meta name="description" content="Learn beginner two-look OLL and PLL on an interactive 3D Rubik's cube: pick a case, choose an algorithm, and step through it move by move.">
 <meta name="theme-color" content="#0c0c0f">
@@ -17,9 +20,11 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-
   * { margin:0; padding:0; box-sizing:border-box; }
+
+  /* No double-tap zoom anywhere (fast taps on Step used to zoom on iOS) */
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+  button, .alg-card { -webkit-tap-highlight-color: transparent; }
 
   :root {
     --bg: #0c0c0f;
@@ -104,7 +109,7 @@
     box-shadow: 0 2px 8px #0004;
   }
 
-  .tab-btn:hover:not(.active) { color: var(--text); }
+  @media (hover: hover) { .tab-btn:hover:not(.active) { color: var(--text); } }
 
   #alg-list {
     flex: 1;
@@ -136,9 +141,11 @@
     border: 1px solid transparent;
   }
 
-  .alg-card:hover {
-    background: var(--card-hover);
-    border-color: var(--border);
+  @media (hover: hover) {
+    .alg-card:hover {
+      background: var(--card-hover);
+      border-color: var(--border);
+    }
   }
 
   .alg-card.selected {
@@ -219,9 +226,12 @@
     justify-content: center;
     gap: 10px;
     padding: 0 30px;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   #alg-display {
+    position: relative;
     font-family: 'JetBrains Mono', monospace;
     font-size: 18px;
     font-weight: 600;
@@ -231,10 +241,10 @@
   }
 
   #alg-display .done { color: var(--text-dim); cursor: pointer; }
-  #alg-display .done:hover { color: var(--text); }
+  @media (hover: hover) { #alg-display .done:hover { color: var(--text); } }
   #alg-display .current { color: var(--accent); background: var(--accent-dim); padding: 1px 5px; border-radius: 4px; cursor: pointer; }
   #alg-display .pending { color: var(--text-dim); opacity: 0.5; cursor: pointer; }
-  #alg-display .pending:hover { opacity: 0.8; }
+  @media (hover: hover) { #alg-display .pending:hover { opacity: 0.8; } }
 
   .btn-row {
     display: flex;
@@ -258,7 +268,7 @@
     gap: 6px;
   }
 
-  .ctrl-btn:hover { background: var(--card-hover); border-color: var(--text-dim); }
+  @media (hover: hover) { .ctrl-btn:hover { background: var(--card-hover); border-color: var(--text-dim); } }
 
   .ctrl-btn.primary {
     background: var(--accent);
@@ -266,7 +276,7 @@
     border-color: var(--accent);
   }
 
-  .ctrl-btn.primary:hover { filter: brightness(1.1); }
+  @media (hover: hover) { .ctrl-btn.primary:hover { filter: brightness(1.1); } }
   .ctrl-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
 
   .speed-ctrl {
@@ -311,9 +321,11 @@
     white-space: nowrap;
   }
 
-  .variant-btn:hover {
-    border-color: var(--text-dim);
-    color: var(--text);
+  @media (hover: hover) {
+    .variant-btn:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
+    }
   }
 
   .variant-btn.active {
@@ -348,7 +360,7 @@
     transition: all .15s;
   }
 
-  #modal-close:hover { background: var(--card-hover); border-color: var(--text-dim); }
+  @media (hover: hover) { #modal-close:hover { background: var(--card-hover); border-color: var(--text-dim); } }
 
   /* ── Mobile name banner in modal ── */
   #modal-alg-name {
@@ -364,6 +376,16 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 6px 14px;
+  }
+
+  /* ═══ SHORT LANDSCAPE (phone on its side) ═══ */
+  @media (min-width: 701px) and (max-height: 500px) {
+    #sidebar { width: 300px; min-width: 300px; }
+    #sidebar-header { padding: 10px 14px 8px; }
+    #sidebar-header h1 { font-size: 15px; margin-bottom: 8px; }
+    #controls { height: auto; padding: 8px 16px; gap: 6px; }
+    #alg-display { font-size: 14px; overflow-x: auto; white-space: nowrap; max-width: 100%; }
+    .ctrl-btn { padding: 8px 14px; }
   }
 
   /* ═══ MOBILE ═══ */
@@ -392,8 +414,21 @@
       transform: translateY(0);
     }
 
-    #modal-close { display: flex; }
-    #modal-alg-name { display: block; }
+    #modal-close { display: flex; top: max(12px, env(safe-area-inset-top)); }
+    #modal-alg-name {
+      display: block;
+      top: max(14px, env(safe-area-inset-top));
+      max-width: calc(100% - 90px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #modal-close { width: 44px; height: 44px; }
+
+    #sidebar-header { padding-top: max(20px, env(safe-area-inset-top)); }
+    #alg-list { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .tab-btn { padding: 11px 0; font-size: 13px; }
+    .variant-btn { padding: 7px 11px; font-size: 11px; }
 
     #placeholder { display: none; }
 
@@ -405,20 +440,35 @@
     }
 
     #alg-display {
-      font-size: 14px;
+      font-size: 15px;
+      line-height: 2;
       overflow-x: auto;
       white-space: nowrap;
       max-width: 100%;
+      scrollbar-width: none;
     }
+    #alg-display::-webkit-scrollbar { display: none; }
 
-    .btn-row { flex-wrap: wrap; justify-content: center; }
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      width: 100%;
+    }
 
     .ctrl-btn {
-      padding: 10px 14px;
-      font-size: 12px;
+      justify-content: center;
+      white-space: nowrap;
+      min-height: 46px;
+      padding: 0 6px;
+      font-size: 13px;
     }
 
-    .speed-ctrl { order: 10; }
+    .speed-ctrl {
+      grid-column: 1 / -1;
+      justify-content: center;
+      min-height: 32px;
+    }
+    .speed-ctrl input[type=range] { width: 160px; }
   }
 </style>
 </head>
@@ -653,7 +703,7 @@ const ICON = {
   pad: 6,    // outside marker area
   g: 2,      // gap between cells
   cs: 10,    // cell size
-  mw: 4,     // marker thickness
+  mw: 5,     // marker thickness
   mg: 1,     // marker gap from cell
 };
 ICON.gridSize = ICON.cs * 3 + ICON.g * 4;
@@ -736,7 +786,8 @@ function outsideSides(r, c) {
 }
 
 // Same hues as the 3D cube: F green, R red, B blue, L orange
-const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#ef4444', B:'#3b82f6', L:'#f97316', D:'#e8e8f0' };
+// Red is deep crimson and orange is light, so they differ in lightness too, not just hue
+const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#dc1f3c', B:'#3b82f6', L:'#ff9a2e', D:'#e8e8f0' };
 
 // kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors.
 // edgesOnly: step-1 OLL, where corners don't matter and are drawn neutral.
@@ -918,6 +969,7 @@ scene.add(cubeGroup);
 
 let displayMode = 'full'; // 'full', 'oll', 'pll'
 let buildGen = 0; // bumped on every rebuild so in-flight animations can bail out
+let stepQueue = 0; // Step/Back taps received while a move animates (+ forward, − back)
 
 // ── Geometry constants ──
 const BODY_SIZE = 0.93;
@@ -1006,6 +1058,7 @@ const FACE_DEFS = [
 
 function buildCube() {
   buildGen++;
+  stepQueue = 0;
   while (cubeGroup.children.length) cubeGroup.remove(cubeGroup.children[0]);
   while (pivot.children.length) pivot.remove(pivot.children[0]);
   pivot.rotation.set(0, 0, 0);
@@ -1056,7 +1109,8 @@ buildCube();
 //  ORBIT CONTROLS (simple mouse drag)
 // ═══════════════════════════════════════════
 
-let isDragging = false, prevMouse = { x:0, y:0 };
+const activePointers = new Map(); // pointerId → last {x, y}
+let pinchDist = 0;
 
 // Compute a radius so the cube fits nicely with padding
 function computeFitRadius() {
@@ -1117,21 +1171,40 @@ function resetCameraPosition(animate = true) {
 
 updateCamera();
 
-container.addEventListener('pointerdown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
-window.addEventListener('pointerup', () => { isDragging = false; });
-window.addEventListener('pointermove', e => {
-  if (!isDragging) return;
-  const dx = e.clientX - prevMouse.x, dy = e.clientY - prevMouse.y;
-  spherical.theta -= dx * 0.008;
-  spherical.phi = Math.max(-1.2, Math.min(1.2, spherical.phi + dy * 0.008));
-  prevMouse = { x: e.clientX, y: e.clientY };
+function clampRadius(r) { return Math.max(4, Math.min(30, r)); }
+
+function pointerSpread() {
+  const [a, b] = [...activePointers.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+container.addEventListener('pointerdown', e => {
+  container.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (activePointers.size === 2) pinchDist = pointerSpread();
+});
+container.addEventListener('pointermove', e => {
+  const prev = activePointers.get(e.pointerId);
+  if (!prev) return;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (activePointers.size === 1) {
+    spherical.theta -= (e.clientX - prev.x) * 0.008;
+    spherical.phi = Math.max(-1.2, Math.min(1.2, spherical.phi + (e.clientY - prev.y) * 0.008));
+  } else if (activePointers.size === 2) {
+    const d = pointerSpread();
+    if (pinchDist > 0 && d > 0) spherical.radius = clampRadius(spherical.radius * pinchDist / d);
+    pinchDist = d;
+  }
   updateCamera();
 });
+const releasePointer = e => { activePointers.delete(e.pointerId); pinchDist = 0; };
+container.addEventListener('pointerup', releasePointer);
+container.addEventListener('pointercancel', releasePointer);
 
 // Scroll to zoom
 container.addEventListener('wheel', e => {
   e.preventDefault();
-  spherical.radius = Math.max(4, Math.min(30, spherical.radius + e.deltaY * 0.01));
+  spherical.radius = clampRadius(spherical.radius + e.deltaY * 0.01);
   updateCamera();
 }, { passive: false });
 
@@ -1293,6 +1366,7 @@ const modalAlgName = document.getElementById('modal-alg-name');
 function isMobile() { return window.innerWidth <= 700; }
 
 function openMobileModal() {
+  if (!mainEl.classList.contains('modal-open')) history.pushState({ modal: true }, '');
   mainEl.classList.add('modal-open');
   // Resize renderer after CSS transition
   setTimeout(resizeRenderer, 50);
@@ -1305,13 +1379,21 @@ function closeMobileModal() {
   updateButtons();
 }
 
-modalCloseBtn.addEventListener('click', closeMobileModal);
+modalCloseBtn.addEventListener('click', () => {
+  if (history.state?.modal) history.back(); // popstate closes it
+  else closeMobileModal();
+});
+window.addEventListener('popstate', () => {
+  if (mainEl.classList.contains('modal-open')) closeMobileModal();
+});
 
 function resizeRenderer() {
+  if (!container.clientWidth || !container.clientHeight) return;
+  const zoom = spherical.radius / computeFitRadius();
   camera.aspect = container.clientWidth / container.clientHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(container.clientWidth, container.clientHeight);
-  spherical.radius = computeFitRadius();
+  spherical.radius = clampRadius(computeFitRadius() * zoom);
   updateCamera();
 }
 
@@ -1336,11 +1418,17 @@ function updateDisplay() {
       goToStep(target);
     });
   });
+
+  const cur = algDisplay.querySelector('.current');
+  if (cur && algDisplay.scrollWidth > algDisplay.clientWidth) {
+    algDisplay.scrollTo({ left: cur.offsetLeft - (algDisplay.clientWidth - cur.offsetWidth) / 2, behavior: 'smooth' });
+  }
 }
 
 async function goToStep(targetIndex) {
   if (animating || targetIndex === moveIndex) return;
   playing = false;
+  stepQueue = 0;
   animating = true;
   updateButtons();
 
@@ -1377,17 +1465,26 @@ async function goToStep(targetIndex) {
   updateButtons();
 }
 
+// Buttons stay enabled while a move animates: a tap on a disabled button
+// falls through to the page, which iOS treats as a double-tap zoom.
 function updateButtons() {
   const done = moveIndex >= moveTokens.length;
-  btnPlay.disabled = !currentAlg || animating;
-  btnStep.disabled = !currentAlg || done || animating;
-  btnBack.disabled = !currentAlg || moveIndex === 0 || animating;
-  btnReset.disabled = !currentAlg || animating;
+  btnPlay.disabled = !currentAlg;
+  btnStep.disabled = !currentAlg || done;
+  btnBack.disabled = !currentAlg || moveIndex === 0;
+  btnReset.disabled = !currentAlg;
   btnPlay.innerHTML = playing ? '⏸ Pause' : (done ? '▶ Replay' : '▶ Play');
 }
 
+function drainStepQueue() {
+  if (playing || animating || !stepQueue) return;
+  if (stepQueue > 0) { stepQueue--; doStep(); }
+  else { stepQueue++; doStepBack(); }
+}
+
 async function doStepBack() {
-  if (moveIndex <= 0 || animating) return;
+  if (animating) { if (!playing) stepQueue--; return; }
+  if (moveIndex <= 0) { stepQueue = 0; return; }
   animating = true;
   playing = false;
   updateButtons();
@@ -1407,10 +1504,12 @@ async function doStepBack() {
   animating = false;
   updateDisplay();
   updateButtons();
+  drainStepQueue();
 }
 
 async function doStep() {
-  if (moveIndex >= moveTokens.length || animating) return;
+  if (animating) { if (!playing) stepQueue++; return; }
+  if (moveIndex >= moveTokens.length) { stepQueue = 0; return; }
   animating = true;
   updateButtons();
 
@@ -1422,6 +1521,7 @@ async function doStep() {
   animating = false;
   updateDisplay();
   updateButtons();
+  drainStepQueue();
 }
 
 async function playAll() {
@@ -1431,8 +1531,11 @@ async function playAll() {
     await new Promise(r => setTimeout(r, 200));
   }
   playing = true;
+  stepQueue = 0;
   updateButtons();
   while (playing && moveIndex < moveTokens.length) {
+    // A Step may still be finishing when Play is pressed
+    if (animating) { await new Promise(r => setTimeout(r, 30)); continue; }
     await doStep();
     if (moveIndex < moveTokens.length) await new Promise(r => setTimeout(r, 80));
   }
@@ -1544,6 +1647,7 @@ window.addEventListener('keydown', e => {
 
 function render() {
   requestAnimationFrame(render);
+  if (isMobile() && !mainEl.classList.contains('modal-open')) return;
   renderer.render(scene, camera);
 }
 render();
