@@ -6,6 +6,7 @@
     "directory": "./public"
   },
   "workers_dev": true,
+  "preview_urls": false,
   "routes": [
     { "pattern": "cube.lyuz.net", "custom_domain": true }
   ]
