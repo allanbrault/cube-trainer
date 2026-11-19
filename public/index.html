@@ -1413,7 +1413,7 @@ function switchTab(tab) {
 tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
 // Timer session state (logic lives under TIMER)
-const trainer = { active: false, mode: 'oll', focus: null, item: null, state: 'idle', holdTimeout: 0, start: 0, raf: 0, hint: false };
+const trainer = { active: false, mode: 'oll', focus: null, item: null, state: 'idle', holdTimeout: 0, start: 0, raf: 0, hint: false, stoppedAt: -1e9 };
 
 renderList();
 
@@ -2294,7 +2294,8 @@ function setTimerState(state) {
 
 function pressDown() {
   if (trainer.state === 'running') { stopTimer(); return; }
-  if (trainer.state !== 'idle') return;
+  // A second hand landing just after the stop is part of the stop, not a new hold
+  if (trainer.state !== 'idle' || performance.now() - trainer.stoppedAt < 500) return;
   setTimerState('holding');
   trainer.holdTimeout = setTimeout(() => {
     if (trainer.state !== 'holding') return;
@@ -2321,7 +2322,8 @@ function startTimer() {
 
 function stopTimer() {
   cancelAnimationFrame(trainer.raf);
-  const ms = Math.round(performance.now() - trainer.start);
+  trainer.stoppedAt = performance.now();
+  const ms = Math.round(trainer.stoppedAt - trainer.start);
   trTimeEl.textContent = fmtTime(ms);
   const { mode, targets } = trainer.item;
   store.solves.push(mode === 'll'

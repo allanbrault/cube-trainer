@@ -494,7 +494,7 @@ const T = {
   state: 'idle',        // idle | inspecting | running
   arm: 'none',          // none | holding | ready — progress of the current press
   pressed: false,
-  swallowRelease: false, // the press that stopped the clock must not start anything on release
+  deadPress: false,     // the current touch is part of stopping the clock: it must do nothing else
   holdTimer: 0,
   raf: 0,
   start: 0,
@@ -503,6 +503,10 @@ const T = {
   stoppedAt: -1e9,
   last: null,           // most recent solve of this visit, for the quick penalty buttons
 };
+
+// Cubers stop with both hands: the second one lands a moment after the first
+// and must not count as the start of the next attempt, however long it rests
+const STOP_GUARD_MS = 500;
 
 const coarse = matchMedia('(pointer: coarse)');
 
@@ -587,7 +591,7 @@ function stopSolve() {
 }
 
 function pressDown() {
-  if (T.pressed || !currentScramble()) return;
+  if (T.pressed || !currentScramble() || performance.now() - T.stoppedAt < STOP_GUARD_MS) return;
   T.pressed = true;
   // With inspection on, a press from idle only starts the countdown (on release)
   if (!(T.state === 'idle' && store.inspection)) {
@@ -602,7 +606,6 @@ function pressDown() {
 }
 
 function pressUp(cancelled = false) {
-  if (T.swallowRelease) { T.swallowRelease = false; return; }
   if (!T.pressed) return;
   T.pressed = false;
   clearTimeout(T.holdTimer);
@@ -651,7 +654,7 @@ $('last-actions').addEventListener('click', e => {
 // ── Input ──
 
 const stage = $('stage');
-const isControl = el => !!el.closest?.('button, a, input, #panel');
+const isControl = el => !!el.closest?.('button, a, input, #panel, #mini');
 
 stage.addEventListener('pointerdown', e => {
   if (e.button > 0 || isControl(e.target)) return;
@@ -662,16 +665,17 @@ window.addEventListener('pointerup', () => pressUp());
 window.addEventListener('pointercancel', () => pressUp(true));
 stage.addEventListener('contextmenu', e => e.preventDefault());
 
-// While solving, a touch anywhere stops the clock and does nothing else
+// While solving, a touch anywhere stops the clock and does nothing else: no
+// new hold, and no click on a button that reappears under the finger. The
+// same goes for any touch that begins just after the stop.
 document.addEventListener('pointerdown', e => {
-  if (T.state !== 'running') return;
-  e.preventDefault();
-  e.stopPropagation();
-  stopSolve();
-  T.swallowRelease = true;
+  const stopping = T.state === 'running';
+  if (stopping) stopSolve();
+  T.deadPress = stopping || performance.now() - T.stoppedAt < STOP_GUARD_MS;
+  if (T.deadPress) { e.preventDefault(); e.stopPropagation(); }
 }, true);
 document.addEventListener('click', e => {
-  if (performance.now() - T.stoppedAt < 400) { e.preventDefault(); e.stopPropagation(); }
+  if (T.deadPress) { e.preventDefault(); e.stopPropagation(); }
 }, true);
 
 window.addEventListener('keydown', e => {
@@ -679,9 +683,9 @@ window.addEventListener('keydown', e => {
     e.preventDefault();
     if (e.repeat) return;
     stopSolve();
-    if (e.code === 'Space') T.swallowRelease = true;
     return;
   }
+  T.deadPress = false;
   if (e.code === 'Escape') {
     if (T.state === 'inspecting') cancelInspection();
     else closePanel();
@@ -699,7 +703,7 @@ window.addEventListener('keyup', e => {
   pressUp();
 });
 // Switching away mid-hold must not leave the timer armed
-window.addEventListener('blur', () => { T.swallowRelease = false; pressUp(true); });
+window.addEventListener('blur', () => pressUp(true));
 
 $('btn-cancel').addEventListener('click', cancelInspection);
 $('btn-next').addEventListener('click', () => { if (currentScramble()) nextScramble(); });
