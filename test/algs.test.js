@@ -161,3 +161,17 @@ test('cross: the 11 ways one edge can sit, each solved in at most 4 moves', () =
   }
   assert.equal(keys.size, 11);
 });
+
+// Variant labels become link slugs and favourite keys, so they must not collide
+test('variant labels are distinct within every case', () => {
+  const slug = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  for (const c of allCases([...CROSS_ALGS, ...F2L_ALGS, ...OLL_ALGS, ...PLL_ALGS])) {
+    const slugs = c.variants.map(v => slug(v.label));
+    assert.equal(new Set(slugs).size, slugs.length, `"${c.name}": ${c.variants.map(v => v.label).join(' | ')}`);
+    assert.ok(slugs.every(Boolean), `"${c.name}" has an empty label`);
+  }
+  for (const sections of [CROSS_ALGS, F2L_ALGS, OLL_ALGS, PLL_ALGS]) {
+    const names = allCases(sections).map(c => slug(c.name));
+    assert.equal(new Set(names).size, names.length, 'case names collide');
+  }
+});

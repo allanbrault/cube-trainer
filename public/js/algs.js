@@ -365,7 +365,7 @@ export const F2L_ALGS = [
         desc: "Corner in slot · edge top front, side colour up",
         variants: [
           { label: "Standard", alg: "U R U' R' U' F' U F" },
-          { label: "U R U'…", alg: "U R U' R' F R' F' R" },
+          { label: "U R U' R' F…", alg: "U R U' R' F R' F' R" },
         ],
       },
       {
@@ -416,7 +416,7 @@ export const F2L_ALGS = [
         desc: "Corner in slot, white front · edge in slot",
         variants: [
           { label: "Standard", alg: "R U' R' U' R U R' U2 R U' R'" },
-          { label: "R U R'…", alg: "R U R' U' R U2 R' U' R U R'" },
+          { label: "R U R' U' R U2…", alg: "R U R' U' R U2 R' U' R U R'" },
         ],
       },
       {
@@ -439,8 +439,8 @@ export const F2L_ALGS = [
         desc: "Corner in slot, white right · edge in slot, flipped",
         variants: [
           { label: "Standard", alg: "R U' R' U2 F' U' F U' F' U F" },
-          { label: "R U' R'…", alg: "R U' R' F' U F U2 F' U' F" },
-          { label: "R U' R'…", alg: "R U' R' r U' r' U2 r U r'" },
+          { label: "R U' R' F'…", alg: "R U' R' F' U F U2 F' U' F" },
+          { label: "R U' R' r…", alg: "R U' R' r U' r' U2 r U r'" },
         ],
       },
     ]
