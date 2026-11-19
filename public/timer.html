@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<title>3×3 Timer — Cube Trainer</title>
+<meta name="description" content="Speedcubing timer with competition-style random-state scrambles, 15-second inspection, +2 / DNF and ao5 / ao12 / ao100 tracking.">
+<meta name="theme-color" content="#0c0c0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cube Trainer">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://cube.lyuz.net/timer">
+<meta property="og:title" content="3×3 Timer — Cube Trainer">
+<meta property="og:description" content="Competition-style random-state scrambles, inspection, +2 / DNF and rolling averages.">
+<meta property="og:image" content="https://cube.lyuz.net/og-image.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; background: var(--bg); }
+  button, a { -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #0c0c0f;
+    --panel: #141419;
+    --card: #1a1a22;
+    --card-hover: #22222e;
+    --border: #2a2a38;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --accent: #f7c948;
+    --accent-dim: #f7c94830;
+    --blue: #48c9f7;
+    --green: #4ade80;
+    --orange: #fb923c;
+    --red: #f87171;
+    --radius: 10px;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .chip.quiet { background: transparent; color: var(--text-dim); }
+  .chip.on { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+  .chip.danger.armed { border-color: var(--red); color: var(--red); }
+  @media (hover: hover) { .chip:hover { border-color: var(--text-dim); color: var(--text); } }
+
+  /* ── Panel: stats and history (sidebar on desktop, sheet on phones) ── */
+  #panel {
+    width: 370px;
+    min-width: 370px;
+    padding-left: env(safe-area-inset-left);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    transition: opacity .15s;
+  }
+  body.running #panel, body.inspecting #panel { opacity: .25; pointer-events: none; }
+
+  #panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  #panel-head h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  #panel-head h1 span { color: var(--accent); }
+  #panel-close { display: none; }
+
+  #panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px calc(18px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .stat {
+    min-width: 0;
+    padding: 8px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    text-align: left;
+  }
+  .stat .v { font-family: var(--mono); font-size: 15px; font-weight: 700; margin-top: 3px; white-space: nowrap; }
+  .stat .s { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  #chart-box { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 9px 9px 4px; }
+  #chart-box .legend { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #chart-box .key { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  #chart-box .key i { width: 10px; height: 3px; border-radius: 2px; }
+  #chart-box .key i.dot { width: 5px; height: 5px; border-radius: 50%; }
+  #chart { display: block; width: 100%; height: auto; margin-top: 4px; }
+  #chart text { font-family: var(--mono); font-size: 9px; fill: var(--text-dim); }
+
+  .day {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 10px 4px 4px;
+  }
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 6px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .row .n { width: 44px; color: var(--text-dim); font-size: 11px; }
+  .row .t { width: 84px; font-weight: 700; }
+  .row .a { flex: 1; color: var(--text-dim); font-size: 11px; }
+  .row .pb { color: var(--accent); font-size: 10px; font-weight: 700; }
+  .row.dnf .t { color: var(--red); }
+  @media (hover: hover) { .row:hover { background: var(--card); } }
+  .detail {
+    padding: 10px 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .detail .scr { font-family: var(--mono); font-size: 13px; line-height: 1.6; word-spacing: 3px; user-select: text; -webkit-user-select: text; }
+  .detail .when { font-size: 12px; color: var(--text-dim); }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .empty { padding: 18px 6px; font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  #data-msg { font-size: 12px; color: var(--text-dim); min-height: 16px; }
+
+  /* ── Stage: scramble and the timer itself ── */
+  #stage {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px calc(28px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) 28px;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+
+  .topbar { display: flex; align-items: center; gap: 8px; }
+  .grow { flex: 1; }
+
+  #scramble-area { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 28px; }
+  #scramble-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  #scramble {
+    font-family: var(--mono);
+    font-size: clamp(19px, 2.3vw, 28px);
+    font-weight: 600;
+    line-height: 1.5;
+    word-spacing: 5px;
+    min-height: 1.5em;
+  }
+  #scramble.waiting { color: var(--text-dim); font-size: 15px; font-weight: 400; word-spacing: 0; }
+  #net { flex: none; width: 168px; }
+  #net svg { display: block; width: 100%; height: auto; }
+
+  #pad {
+    flex: 1;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 16px;
+    cursor: pointer;
+  }
+  #time {
+    font-family: var(--mono);
+    font-size: clamp(64px, 15vw, 150px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    transition: color .1s;
+  }
+  #cue { font-family: var(--mono); font-size: 15px; font-weight: 700; min-height: 20px; }
+  #help { font-size: 13px; color: var(--text-dim); text-align: center; min-height: 18px; }
+  #last-actions { display: flex; gap: 6px; min-height: 36px; }
+  #btn-cancel { display: none; }
+
+  body.inspecting #time { color: var(--accent); }
+  body.warn8 #cue { color: var(--accent); }
+  body.warn12 #time, body.warn12 #cue { color: var(--orange); }
+  body.over #time, body.over #cue { color: var(--red); }
+  body.holding #time { color: var(--red); }
+  body.ready #time { color: var(--green); }
+
+  /* While inspecting or solving nothing but the clock is on screen */
+  body.running #stage > :not(#pad), body.inspecting #stage > :not(#pad) { visibility: hidden; }
+  body.running #pad > :not(#time) { visibility: hidden; }
+  body.inspecting #last-actions { display: none; }
+  body.inspecting #btn-cancel { display: inline-flex; }
+
+  #mini { display: none; }
+
+  /* ═══ SHORT LANDSCAPE (phone on its side) ═══ */
+  @media (min-width: 761px) and (max-height: 520px) {
+    #panel { width: 300px; min-width: 300px; }
+    #panel-head { padding: 10px 14px 8px; }
+    #stage { gap: 8px; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    #scramble { font-size: 17px; }
+    #net { width: 112px; }
+    #time { font-size: clamp(48px, 18vh, 96px); }
+    #pad { min-height: 0; gap: 4px; }
+  }
+
+  /* ═══ MOBILE ═══ */
+  @media (max-width: 760px) {
+    #panel {
+      position: fixed;
+      inset: 0;
+      width: auto;
+      min-width: 0;
+      padding-left: 0;
+      border-right: none;
+      z-index: 100;
+      transform: translateY(100%);
+      transition: transform .3s ease;
+      visibility: hidden;
+    }
+    #panel.open { transform: translateY(0); visibility: visible; }
+    #panel-head { padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px) 12px calc(env(safe-area-inset-left) + 16px); }
+    #panel-close { display: inline-flex; width: 44px; height: 44px; justify-content: center; font-size: 18px; }
+    #panel-body { padding: 12px calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 12px); }
+
+    #stage {
+      gap: 12px;
+      padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 14px) calc(env(safe-area-inset-left) + 16px);
+    }
+    .chip { padding: 10px 12px; }
+    #scramble-area { gap: 10px; }
+    #scramble { font-size: 20px; }
+    #net { width: 132px; margin-left: auto; }
+    #scramble-main { flex-basis: 100%; }
+    #scramble-row { flex: 1; align-self: flex-start; }
+    #time { font-size: clamp(60px, 19vw, 110px); }
+
+    #mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    #mini .stat { background: var(--panel); cursor: pointer; }
+    #mini .stat .v { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<aside id="panel" aria-label="Statistics and history">
+  <div id="panel-head">
+    <h1>🧊 3×3 <span>Timer</span></h1>
+    <button class="chip" id="panel-close" aria-label="Close history">✕</button>
+  </div>
+  <div id="panel-body">
+    <div class="stat-grid" id="stats"></div>
+    <div id="chart-box"></div>
+    <div id="history"></div>
+    <div>
+      <div class="btns">
+        <button class="chip quiet" id="btn-export" title="Download every solve as a JSON file">Export</button>
+        <button class="chip quiet" id="btn-import" title="Add the solves from an exported file">Import</button>
+        <button class="chip quiet danger" id="btn-clear">Delete all solves</button>
+        <input type="file" id="file-import" accept="application/json,.json" hidden>
+      </div>
+      <div id="data-msg" role="status"></div>
+    </div>
+  </div>
+</aside>
+
+<main id="stage">
+  <div class="topbar">
+    <a class="chip" href="/">← OLL / PLL</a>
+    <span class="grow"></span>
+    <button class="chip" id="btn-insp" aria-pressed="false" title="15-second WCA inspection before each solve">Inspection</button>
+  </div>
+
+  <section id="scramble-area">
+    <div id="scramble-main">
+      <div class="label">Scramble · white on top, green in front</div>
+      <div id="scramble" class="waiting" aria-live="polite">Generating a scramble…</div>
+    </div>
+    <div class="btns" id="scramble-row">
+      <button class="chip quiet" id="btn-next">↻ New</button>
+      <button class="chip quiet" id="btn-copy">Copy</button>
+    </div>
+    <div id="net" title="How the cube should look after scrambling"></div>
+  </section>
+
+  <div id="pad">
+    <div id="time">0.00</div>
+    <div id="cue"></div>
+    <div id="help"></div>
+    <div id="last-actions"></div>
+    <button class="chip" id="btn-cancel">Cancel inspection</button>
+  </div>
+
+  <div id="mini"></div>
+</main>
+
+<script type="module">
+import { apply, solved } from './js/cube.js';
+import { DNF, HOLD_MS, INSPECTION_MS, result, format, formatSolve, inspectionPenalty, summarize } from './js/timer-core.js';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+
+// ═══════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════
+// Own key: the OLL / PLL page rewrites its whole store on every save, so
+// sharing one would let an open tab there overwrite solves made here.
+
+const STORE_KEY = 'cube-timer-v1';
+const TRAINER_KEY = 'cube-trainer-v2';
+const SCRAMBLE = /^[URFDLB]['2]?( [URFDLB]['2]?)*$/;
+const PENALTIES = ['ok', '+2', 'dnf'];
+
+// Keeps only well-formed solves (stored data and imported files are not trusted)
+function cleanSolves(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(s => s && Number.isFinite(s.ms) && s.ms >= 0 && Number.isFinite(s.at) && PENALTIES.includes(s.pen))
+    .map(s => ({ ms: Math.round(s.ms), pen: s.pen, scr: SCRAMBLE.test(s.scr) ? s.scr : '', at: s.at }));
+}
+
+function loadStore() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch {}
+  return {
+    solves: cleanSolves(saved.solves),
+    inspection: !!saved.inspection,
+    // Scrambles made ahead of time; the first one is on screen
+    queue: Array.isArray(saved.queue) ? saved.queue.filter(s => SCRAMBLE.test(s)) : [],
+  };
+}
+const store = loadStore();
+
+function saveStore() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {}
+}
+
+// ═══════════════════════════════════════════
+//  SCRAMBLES
+// ═══════════════════════════════════════════
+// Random-state scrambles come from a Worker; two are kept ready so the next
+// one appears the instant a solve ends.
+
+const QUEUE_SIZE = 2;
+const scrambleEl = $('scramble');
+let requested = 0;
+let worker = null;
+let fallback = null; // the scrambler module, when Workers are unavailable
+
+function receiveScramble(scramble) {
+  requested--;
+  store.queue.push(scramble);
+  saveStore();
+  if (store.queue.length === 1) renderScramble();
+  fillQueue();
+}
+
+function startFallback() {
+  if (fallback) return;
+  worker = null;
+  fallback = import('./js/scrambler.js');
+  for (let i = 0; i < requested; i++) fallbackScramble();
+}
+const fallbackScramble = () => fallback.then(mod => setTimeout(() => receiveScramble(mod.randomScramble().scramble), 30));
+
+try {
+  worker = new Worker(new URL('./js/scramble-worker.js', import.meta.url), { type: 'module' });
+  worker.onmessage = e => { if (e.data?.type === 'scramble') receiveScramble(e.data.scramble); };
+  worker.onerror = startFallback;
+} catch { startFallback(); }
+
+function fillQueue() {
+  while (store.queue.length + requested < QUEUE_SIZE) {
+    requested++;
+    if (worker) worker.postMessage({ type: 'scramble' });
+    else fallbackScramble();
+  }
+}
+
+const currentScramble = () => store.queue[0] || '';
+
+function nextScramble() {
+  store.queue.shift();
+  saveStore();
+  fillQueue();
+  renderScramble();
+}
+
+// WCA colours with white on top and green in front
+const NET_COLORS = { U: '#f2f2f6', R: '#dc1f3c', F: '#22c55e', D: '#f7c948', L: '#ff9a2e', B: '#3b82f6' };
+const NET_LAYOUT = { U: [1, 0], L: [0, 1], F: [1, 1], R: [2, 1], B: [3, 1], D: [1, 2] };
+
+// Unfolded cube, drawn from the scramble text itself so the two cannot disagree
+function netSvg(scramble) {
+  const cube = apply(solved(), scramble);
+  const cell = 10, gap = 1.5, face = cell * 3 + gap * 2, faceGap = 4;
+  const w = face * 4 + faceGap * 3, h = face * 3 + faceGap * 2;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scrambled cube, unfolded">`;
+  [...'URFDLB'].forEach((name, f) => {
+    const [fx, fy] = NET_LAYOUT[name];
+    for (let i = 0; i < 9; i++) {
+      const x = fx * (face + faceGap) + (i % 3) * (cell + gap);
+      const y = fy * (face + faceGap) + Math.floor(i / 3) * (cell + gap);
+      svg += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="2" fill="${NET_COLORS[cube[f * 9 + i]]}"/>`;
+    }
+  });
+  return svg + '</svg>';
+}
+
+function renderScramble() {
+  const scramble = currentScramble();
+  scrambleEl.classList.toggle('waiting', !scramble);
+  scrambleEl.textContent = scramble || 'Generating a scramble…';
+  $('net').innerHTML = scramble ? netSvg(scramble) : '';
+  $('btn-copy').textContent = 'Copy';
+  renderTimer();
+}
+
+// ═══════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════
+// Hold (Space, or a finger anywhere) until the clock turns green, release to
+// start, press anything to stop. With inspection on, the first press starts a
+// 15-second countdown and the hold-and-release happens inside it.
+
+const timeEl = $('time');
+const T = {
+  state: 'idle',        // idle | inspecting | running
+  arm: 'none',          // none | holding | ready — progress of the current press
+  pressed: false,
+  swallowRelease: false, // the press that stopped the clock must not start anything on release
+  holdTimer: 0,
+  raf: 0,
+  start: 0,
+  inspectionStart: 0,
+  penalty: 'ok',
+  stoppedAt: -1e9,
+  last: null,           // most recent solve of this visit, for the quick penalty buttons
+};
+
+const coarse = matchMedia('(pointer: coarse)');
+
+function helpText() {
+  if (T.state === 'running') return '';
+  if (!currentScramble()) return 'One moment…';
+  if (T.arm === 'ready') return 'Release to start';
+  if (T.arm === 'holding') return 'Keep holding…';
+  if (T.state === 'inspecting') return coarse.matches ? 'Hold anywhere, release to start' : 'Hold Space, release to start · Esc cancels';
+  if (store.inspection) return coarse.matches ? 'Tap anywhere to start inspection' : 'Press Space to start inspection';
+  return coarse.matches ? 'Hold anywhere, release to start' : 'Hold Space, release to start';
+}
+
+function renderTimer() {
+  const cl = document.body.classList;
+  cl.toggle('inspecting', T.state === 'inspecting');
+  cl.toggle('running', T.state === 'running');
+  cl.toggle('holding', T.arm === 'holding');
+  cl.toggle('ready', T.arm === 'ready');
+  if (T.state !== 'inspecting') { cl.remove('warn8', 'warn12', 'over'); $('cue').textContent = ''; }
+  $('help').textContent = helpText();
+  if (T.state === 'idle') timeEl.textContent = T.arm === 'ready' || !T.last ? '0.00' : formatSolve(T.last);
+  renderLastActions();
+}
+
+function tick() {
+  const now = performance.now();
+  if (T.state === 'running') {
+    timeEl.textContent = format(Math.floor((now - T.start) / 10));
+  } else if (T.state === 'inspecting') {
+    const elapsed = now - T.inspectionStart;
+    const penalty = inspectionPenalty(elapsed);
+    timeEl.textContent = penalty === 'ok' ? Math.ceil((INSPECTION_MS - elapsed) / 1000) : penalty === '+2' ? '+2' : 'DNF';
+    const cl = document.body.classList;
+    cl.toggle('warn8', elapsed >= 8000 && elapsed < 12000);
+    cl.toggle('warn12', elapsed >= 12000 && penalty === 'ok');
+    cl.toggle('over', penalty !== 'ok');
+    $('cue').textContent = penalty === 'dnf' ? 'Over 17 seconds' : penalty === '+2' ? 'Over 15 seconds'
+      : elapsed >= 12000 ? '12 seconds' : elapsed >= 8000 ? '8 seconds' : '';
+  } else return;
+  T.raf = requestAnimationFrame(tick);
+}
+
+function startInspection() {
+  T.state = 'inspecting';
+  T.inspectionStart = performance.now();
+  renderTimer();
+  tick();
+}
+
+function cancelInspection() {
+  if (T.state !== 'inspecting') return;
+  cancelAnimationFrame(T.raf);
+  clearTimeout(T.holdTimer);
+  T.state = 'idle';
+  T.arm = 'none';
+  T.pressed = false;
+  renderTimer();
+}
+
+function startSolve() {
+  cancelAnimationFrame(T.raf);
+  const now = performance.now();
+  T.penalty = T.state === 'inspecting' ? inspectionPenalty(now - T.inspectionStart) : 'ok';
+  T.state = 'running';
+  T.start = now;
+  renderTimer();
+  tick();
+}
+
+function stopSolve() {
+  const now = performance.now();
+  cancelAnimationFrame(T.raf);
+  T.last = { ms: Math.round(now - T.start), pen: T.penalty, scr: currentScramble(), at: Date.now() };
+  store.solves.push(T.last);
+  T.state = 'idle';
+  T.arm = 'none';
+  T.pressed = false;
+  T.stoppedAt = now;
+  nextScramble(); // saves, and redraws the timer
+  renderPanel();
+}
+
+function pressDown() {
+  if (T.pressed || !currentScramble()) return;
+  T.pressed = true;
+  // With inspection on, a press from idle only starts the countdown (on release)
+  if (!(T.state === 'idle' && store.inspection)) {
+    T.arm = 'holding';
+    T.holdTimer = setTimeout(() => {
+      if (T.arm !== 'holding') return;
+      T.arm = 'ready';
+      renderTimer();
+    }, HOLD_MS);
+  }
+  renderTimer();
+}
+
+function pressUp(cancelled = false) {
+  if (T.swallowRelease) { T.swallowRelease = false; return; }
+  if (!T.pressed) return;
+  T.pressed = false;
+  clearTimeout(T.holdTimer);
+  const arm = T.arm;
+  T.arm = 'none';
+  if (cancelled) renderTimer();
+  else if (arm === 'ready') startSolve();
+  else if (T.state === 'idle' && store.inspection) startInspection();
+  else renderTimer();
+}
+
+// Quick penalty buttons for the solve just finished
+function renderLastActions() {
+  const el = $('last-actions');
+  if (T.state !== 'idle' || !T.last) { el.innerHTML = ''; return; }
+  el.innerHTML = penaltyButtons(T.last) + '<button class="chip quiet" data-del title="Delete this solve">✕</button>';
+}
+
+const penaltyButtons = solve => PENALTIES.map(p =>
+  `<button class="chip ${solve.pen === p ? 'on' : 'quiet'}" data-pen="${p}">${{ ok: 'OK', '+2': '+2', dnf: 'DNF' }[p]}</button>`).join('');
+
+function setPenalty(solve, pen) {
+  solve.pen = pen;
+  saveStore();
+  renderTimer();
+  renderPanel();
+}
+
+function deleteSolve(solve) {
+  const i = store.solves.indexOf(solve);
+  if (i >= 0) store.solves.splice(i, 1);
+  if (T.last === solve) T.last = null;
+  if (openSolve === solve) openSolve = null;
+  saveStore();
+  renderTimer();
+  renderPanel();
+}
+
+$('last-actions').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || !T.last) return;
+  if (btn.dataset.pen) setPenalty(T.last, btn.dataset.pen);
+  else deleteSolve(T.last);
+});
+
+// ── Input ──
+
+const stage = $('stage');
+const isControl = el => !!el.closest?.('button, a, input, #panel');
+
+stage.addEventListener('pointerdown', e => {
+  if (e.button > 0 || isControl(e.target)) return;
+  e.preventDefault();
+  pressDown();
+});
+window.addEventListener('pointerup', () => pressUp());
+window.addEventListener('pointercancel', () => pressUp(true));
+stage.addEventListener('contextmenu', e => e.preventDefault());
+
+// While solving, a touch anywhere stops the clock and does nothing else
+document.addEventListener('pointerdown', e => {
+  if (T.state !== 'running') return;
+  e.preventDefault();
+  e.stopPropagation();
+  stopSolve();
+  T.swallowRelease = true;
+}, true);
+document.addEventListener('click', e => {
+  if (performance.now() - T.stoppedAt < 400) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+
+window.addEventListener('keydown', e => {
+  if (T.state === 'running') {
+    e.preventDefault();
+    if (e.repeat) return;
+    stopSolve();
+    if (e.code === 'Space') T.swallowRelease = true;
+    return;
+  }
+  if (e.code === 'Escape') {
+    if (T.state === 'inspecting') cancelInspection();
+    else closePanel();
+    return;
+  }
+  if (e.code !== 'Space' || e.target.closest?.('input, textarea')) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  document.activeElement?.blur(); // or releasing Space would click a focused button
+  pressDown();
+});
+window.addEventListener('keyup', e => {
+  if (e.code !== 'Space') return;
+  e.preventDefault();
+  pressUp();
+});
+// Switching away mid-hold must not leave the timer armed
+window.addEventListener('blur', () => { T.swallowRelease = false; pressUp(true); });
+
+$('btn-cancel').addEventListener('click', cancelInspection);
+$('btn-next').addEventListener('click', () => { if (currentScramble()) nextScramble(); });
+$('btn-copy').addEventListener('click', async () => {
+  if (!currentScramble()) return;
+  try { await navigator.clipboard.writeText(currentScramble()); $('btn-copy').textContent = 'Copied'; }
+  catch { $('btn-copy').textContent = 'Copy failed'; }
+});
+
+const inspBtn = $('btn-insp');
+function renderInspection() {
+  inspBtn.classList.toggle('on', store.inspection);
+  inspBtn.setAttribute('aria-pressed', store.inspection);
+  inspBtn.textContent = `Inspection ${store.inspection ? 'on' : 'off'}`;
+}
+inspBtn.addEventListener('click', () => {
+  store.inspection = !store.inspection;
+  saveStore();
+  renderInspection();
+  renderTimer();
+});
+
+// Keep the screen awake: a solve is half a minute with no touches
+let wakeLock = null;
+async function keepAwake() {
+  if (!navigator.wakeLock || document.visibilityState !== 'visible' || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch {}
+}
+document.addEventListener('visibilitychange', keepAwake);
+document.addEventListener('pointerdown', keepAwake);
+keepAwake();
+
+// ═══════════════════════════════════════════
+//  STATS & HISTORY
+// ═══════════════════════════════════════════
+
+const HISTORY_PAGE = 100;
+const CHART_SOLVES = 50;
+const panel = $('panel');
+const historyEl = $('history');
+let openSolve = null;       // solve whose details are expanded
+let shown = HISTORY_PAGE;
+
+const statCell = (label, value, sub = '') =>
+  `<div class="stat"><div class="label">${label}</div><div class="v">${value}</div><div class="s">${sub}</div></div>`;
+const bestSub = v => (v == null ? '' : `best ${format(v)}`);
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function dayLabel(at) {
+  const days = Math.round((startOfToday() - new Date(at).setHours(0, 0, 0, 0)) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return new Date(at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderPanel() {
+  const st = summarize(store.solves);
+  const today = store.solves.filter(s => s.at >= startOfToday());
+  const todayStats = summarize(today);
+
+  $('stats').innerHTML =
+    statCell('Best', format(st.best)) +
+    statCell('Ao5', format(st.ao5.current), bestSub(st.ao5.best)) +
+    statCell('Ao12', format(st.ao12.current), bestSub(st.ao12.best)) +
+    statCell('Ao100', format(st.ao100.current), bestSub(st.ao100.best)) +
+    statCell('Solves', st.count, st.dnfs ? `${st.dnfs} DNF` : '') +
+    statCell('Mean', format(st.mean)) +
+    statCell('Today', today.length, today.length ? `mean ${format(todayStats.mean)}` : '') +
+    statCell('Mo3', format(st.mo3.current), bestSub(st.mo3.best));
+
+  $('mini').innerHTML =
+    statCell('Ao5', format(st.ao5.current)) +
+    statCell('Ao12', format(st.ao12.current)) +
+    statCell('Best', format(st.best)) +
+    statCell('History', st.count, 'open ▸');
+
+  renderChart(st);
+  renderHistory(st);
+}
+
+// Singles as dots, rolling ao5 and ao12 as lines, over the latest solves
+function renderChart(st) {
+  const box = $('chart-box');
+  const from = Math.max(0, st.count - CHART_SOLVES);
+  const series = [st.results, st.windows.ao5, st.windows.ao12].map(xs => xs.slice(from).map(v => (v === DNF ? null : v)));
+  const values = series.flat().filter(v => v != null);
+  if (series[0].length < 2 || values.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  const W = 320, H = 110, left = 38, right = 6, top = 8, bottom = 8;
+  let lo = Math.min(...values), hi = Math.max(...values);
+  if (hi === lo) { hi += 50; lo = Math.max(0, lo - 50); }
+  const n = series[0].length;
+  const x = i => left + (i * (W - left - right)) / (n - 1);
+  const y = v => top + ((hi - v) * (H - top - bottom)) / (hi - lo);
+  const line = (xs, color) => {
+    let d = '', pen = false;
+    xs.forEach((v, i) => {
+      if (v == null) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+      pen = true;
+    });
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+  };
+
+  let svg = `<svg id="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Times of the last ${n} solves">`;
+  for (const v of [hi, (hi + lo) / 2, lo]) {
+    svg += `<line x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}" stroke="#2a2a38" stroke-width="1"/>`;
+    svg += `<text x="${left - 6}" y="${y(v) + 3}" text-anchor="end">${format(Math.round(v))}</text>`;
+  }
+  series[0].forEach((v, i) => { if (v != null) svg += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="1.8" fill="#8888a0"/>`; });
+  svg += line(series[1], '#f7c948') + line(series[2], '#48c9f7') + '</svg>';
+
+  box.innerHTML = `<div class="legend"><span class="label">Last ${n} solves</span>
+    <span class="key"><i class="dot" style="background:#8888a0"></i>single</span>
+    <span class="key"><i style="background:#f7c948"></i>ao5</span>
+    <span class="key"><i style="background:#48c9f7"></i>ao12</span></div>${svg}`;
+}
+
+function renderHistory(st) {
+  if (!st.count) {
+    historyEl.innerHTML = '<div class="empty">No solves yet. Scramble your cube, then hold, release and solve. Every time is saved in this browser.</div>';
+    return;
+  }
+  let html = '', day = '';
+  const first = Math.max(0, st.count - shown);
+  for (let i = st.count - 1; i >= first; i--) {
+    const solve = store.solves[i];
+    const label = dayLabel(solve.at);
+    if (label !== day) { day = label; html += `<div class="day">${label}</div>`; }
+    const ao5 = st.windows.ao5[i];
+    const isBest = st.results[i] === st.best && st.results[i] !== DNF;
+    html += `<button class="row${solve.pen === 'dnf' ? ' dnf' : ''}" data-i="${i}" aria-expanded="${solve === openSolve}">
+      <span class="n">#${i + 1}</span><span class="t">${formatSolve(solve)}</span>
+      <span class="a">${ao5 == null ? '' : `ao5 ${format(ao5)}`}</span>${isBest ? '<span class="pb">BEST</span>' : ''}</button>`;
+    if (solve === openSolve) {
+      html += `<div class="detail" data-i="${i}">
+        <div class="scr">${esc(solve.scr) || 'No scramble recorded'}</div>
+        <div class="when">${new Date(solve.at).toLocaleString()}${solve.pen === 'dnf' ? ` · time was ${format(Math.floor(solve.ms / 10))}` : ''}</div>
+        <div class="btns">${penaltyButtons(solve)}
+          ${solve.scr ? '<button class="chip quiet" data-copy>Copy scramble</button>' : ''}
+          <button class="chip quiet" data-del>Delete</button></div></div>`;
+    }
+  }
+  if (first > 0) html += `<div class="btns" style="padding:12px 4px"><button class="chip quiet" data-more>Show ${Math.min(HISTORY_PAGE, first)} older solves</button></div>`;
+  historyEl.innerHTML = html;
+}
+
+historyEl.addEventListener('click', async e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.more != null) { shown += HISTORY_PAGE; renderPanel(); return; }
+  const solve = store.solves[btn.closest('[data-i]')?.dataset.i];
+  if (!solve) return;
+  if (btn.classList.contains('row')) { openSolve = openSolve === solve ? null : solve; renderPanel(); }
+  else if (btn.dataset.pen) setPenalty(solve, btn.dataset.pen);
+  else if (btn.dataset.del != null) deleteSolve(solve);
+  else if (btn.dataset.copy != null) {
+    try { await navigator.clipboard.writeText(solve.scr); btn.textContent = 'Copied'; } catch { btn.textContent = 'Copy failed'; }
+  }
+});
+
+// Phones: the panel is a sheet over the timer
+const openPanel = () => panel.classList.add('open');
+function closePanel() { panel.classList.remove('open'); }
+$('mini').addEventListener('click', openPanel);
+$('panel-close').addEventListener('click', closePanel);
+
+// ── Backup ──
+
+const dataMsg = $('data-msg');
+
+$('btn-export').addEventListener('click', () => {
+  let trainer = null;
+  try { trainer = JSON.parse(localStorage.getItem(TRAINER_KEY) || 'null'); } catch {}
+  const data = { app: 'cube-trainer', version: 1, exported: new Date().toISOString(), timer: { solves: store.solves }, trainer };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+  a.download = `cube-solves-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  dataMsg.textContent = `Exported ${store.solves.length} solves.`;
+});
+
+$('btn-import').addEventListener('click', () => $('file-import').click());
+$('file-import').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const incoming = cleanSolves(data?.timer?.solves);
+    const known = new Set(store.solves.map(s => `${s.at}:${s.ms}`));
+    const fresh = incoming.filter(s => !known.has(`${s.at}:${s.ms}`));
+    store.solves = [...store.solves, ...fresh].sort((a, b) => a.at - b.at);
+    saveStore();
+    // Last-layer drill data is only restored into a browser that has none
+    let drills = '';
+    if (data?.trainer && typeof data.trainer === 'object' && !localStorage.getItem(TRAINER_KEY)) {
+      localStorage.setItem(TRAINER_KEY, JSON.stringify(data.trainer));
+      drills = ' Last-layer drill history restored too.';
+    }
+    dataMsg.textContent = `Imported ${fresh.length} new solve${fresh.length === 1 ? '' : 's'}` +
+      (incoming.length > fresh.length ? ` (${incoming.length - fresh.length} already here).` : '.') + drills;
+    renderPanel();
+  } catch {
+    dataMsg.textContent = 'That file is not a Cube Trainer export.';
+  }
+});
+
+const clearBtn = $('btn-clear');
+let clearArmed = 0;
+clearBtn.addEventListener('click', () => {
+  if (!clearBtn.classList.contains('armed')) {
+    if (!store.solves.length) return;
+    clearBtn.classList.add('armed');
+    clearBtn.textContent = `Really delete ${store.solves.length} solves?`;
+    clearArmed = setTimeout(disarmClear, 4000);
+    return;
+  }
+  store.solves = [];
+  T.last = null;
+  openSolve = null;
+  saveStore();
+  disarmClear();
+  dataMsg.textContent = 'All solves deleted.';
+  renderTimer();
+  renderPanel();
+});
+function disarmClear() {
+  clearTimeout(clearArmed);
+  clearBtn.classList.remove('armed');
+  clearBtn.textContent = 'Delete all solves';
+}
+
+// ═══════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════
+
+coarse.addEventListener('change', renderTimer);
+renderInspection();
+renderScramble();
+renderPanel();
+fillQueue();
+</script>
+</body>
+</html>

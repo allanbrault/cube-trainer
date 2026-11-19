@@ -1,0 +1,13 @@
+{
+  "name": "cube-oll-pll",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test",
+    "deploy": "node --test && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
+  }
+}

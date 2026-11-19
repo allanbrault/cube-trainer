@@ -428,18 +428,20 @@
   #focus-banner b { color: var(--text); font-weight: 600; }
   #focus-banner:empty { display: none; }
 
-  #btn-timer {
-    width: 100%;
-    margin-top: 10px;
+  .timer-links { display: flex; gap: 6px; margin-top: 10px; }
+  .timer-links > * {
+    flex: 1;
     padding: 10px 0;
     border: 1px solid var(--accent);
     border-radius: 8px;
     background: var(--accent-dim);
     color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -745,7 +747,7 @@
     .chip-btn { padding: 7px 10px; font-size: 11px; }
     .fav-btn { padding: 6px 11px; font-size: 14px; }
     .badge { padding: 3px 9px; font-size: 11px; }
-    #btn-timer { padding: 13px 0; font-size: 14px; }
+    .timer-links > * { padding: 13px 0; }
 
     #trainer {
       gap: 12px;
@@ -771,7 +773,10 @@
       <button class="tab-btn active" data-tab="oll">OLL</button>
       <button class="tab-btn" data-tab="pll">PLL</button>
     </div>
-    <button id="btn-timer">⏱ Timer &amp; scrambles</button>
+    <div class="timer-links">
+      <button id="btn-timer" title="Scrambles that set up one last-layer case, timed per case">⏱ Last-layer drill</button>
+      <a href="/timer" title="Full solves with competition-style scrambles, inspection and averages">⏱ 3×3 solve timer</a>
+    </div>
   </div>
   <div id="alg-list"></div>
 </div>
@@ -781,7 +786,7 @@
   <button id="modal-close">✕</button>
   <div id="cube-container">
     <div id="placeholder">
-      <p>Pick a case, or open the Timer to practise</p>
+      <p>Pick a case, or start a last-layer drill</p>
     </div>
   </div>
   <div id="trainer">
@@ -2337,7 +2342,7 @@ function startTrainer({ mode = store.mode, focus = null } = {}) {
   trainer.active = true;
   trainer.focus = focus;
   mainEl.classList.add('trainer-mode');
-  modalAlgName.textContent = 'Timer';
+  modalAlgName.textContent = 'Last-layer drill';
   if (isMobile()) openMobileModal();
   setTimerState('idle');
   trTimeEl.textContent = fmtTime(0);
