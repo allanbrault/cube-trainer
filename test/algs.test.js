@@ -1,15 +1,11 @@
 // Checks every algorithm in the trainer's database on the sticker model:
-// it must leave the first two layers alone, and all variants listed under one
-// case must really solve the same case.
+// it must leave everything it shouldn't touch alone, all variants listed under
+// one case must really solve the same case, and each step's case list must be
+// complete.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { apply, solved, invert } from '../public/js/cube.js';
-
-// The database lives inline in index.html
-const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-const source = html.slice(html.indexOf('const OLL_ALGS = ['), html.indexOf('// ═', html.indexOf('const PLL_ALGS = [')));
-const { OLL_ALGS, PLL_ALGS } = new Function(`${source}; return { OLL_ALGS, PLL_ALGS };`)();
+import { apply, solved, invert, tokenize } from '../public/js/cube.js';
+import { CROSS_ALGS, F2L_ALGS, OLL_ALGS, PLL_ALGS } from '../public/js/algs.js';
 
 const S = name => 'URFDLB'.indexOf(name[0]) * 9 + Number(name[1]) - 1;
 const slots = names => names.split(' ').map(S);
@@ -94,4 +90,74 @@ test('first-look OLL shapes match their names', () => {
   assert.equal([...shape('Line')].filter(c => c === 'U').length, 2);
   assert.ok(['.U.U', 'U.U.'].includes(shape('Line')));
   assert.ok(['..UU', '.UU.', 'U..U', 'UU..'].includes(shape('L-Shape')));
+});
+
+// ── Cross and F2L: follow individual stickers, named U1…B9 by their home slot ──
+
+const tagged = () => [...'URFDLB'].flatMap(f => Array.from({ length: 9 }, (_, i) => f + (i + 1)));
+const home = i => 'URFDLB'[Math.floor(i / 9)] + ((i % 9) + 1);
+const where = (cube, ids) => ids.map(id => home(cube.indexOf(id))).join(' ');
+const setup = (alg, from = tagged()) => apply(from, invert(alg));
+const centresHome = cube => [4, 13, 22, 31, 40, 49].every(i => cube[i] === home(i));
+const allCases = sections => sections.flatMap(s => s.algs);
+
+const PAIR = ['D3', 'F9', 'R7', 'F6', 'R4'];              // front-right corner and edge
+const isF2LSlot = i => (i >= 27 && i < 36) || (i >= 9 && i % 9 >= 3);
+const restOfF2LHome = cube => cube.every((id, i) => !isF2LSlot(i) || PAIR.includes(home(i)) || id === home(i));
+const pairKey = alg => TURNS.map(t => where(apply(setup(alg), t), PAIR)).sort()[0];
+
+test('F2L: 41 distinct cases, each variant valid', () => {
+  const cases = allCases(F2L_ALGS);
+  assert.equal(cases.length, 41);
+  const keys = new Map();
+  for (const c of cases) {
+    for (const v of c.variants) {
+      const label = `${c.name} / ${v.label}: ${v.alg}`;
+      const before = setup(v.alg);
+      assert.ok(centresHome(before), `turns the whole cube — ${label}`);
+      assert.ok(restOfF2LHome(before), `needs more than the pair out of place — ${label}`);
+      // Shown from the front-right: the corner must be where it can be seen
+      assert.match(where(before, ['D3']), /^(U9|F3|R1|D3|F9|R7)$/, `corner hidden at the back — ${label}`);
+    }
+    const variantKeys = c.variants.map(v => pairKey(v.alg));
+    assert.equal(new Set(variantKeys).size, 1, `variants of "${c.name}" solve different cases`);
+    assert.notEqual(variantKeys[0], PAIR.join(' '), `"${c.name}" is already solved`);
+    assert.ok(!keys.has(variantKeys[0]), `"${c.name}" is the same case as "${keys.get(variantKeys[0])}"`);
+    keys.set(variantKeys[0], c.name);
+    // The drill hands out scrambles made of face turns only
+    assert.ok(c.variants.some(v => tokenize(v.alg).every(m => /^[RUFLDB]['2]?$/.test(m))), `"${c.name}" has no face-turn-only variant`);
+  }
+  assert.equal(new Set(cases.map(c => c.name)).size, 41);
+});
+
+test('F2L: a setup gives the same case whatever the last layer looks like', () => {
+  const lastLayers = ['', "R U R' U R U2 R'", "R U R' U' R' F R2 U' R' U' R U R' F' U", "F R U R' U' F' U2 M2 U M U2 M' U M2"];
+  for (const c of allCases(F2L_ALGS)) {
+    const alg = c.variants[0].alg;
+    const want = where(setup(alg), PAIR);
+    for (const ll of lastLayers) {
+      const after = setup(alg, apply(tagged(), ll));
+      assert.equal(where(after, PAIR), want, `${c.name} after "${ll}"`);
+      assert.ok(restOfF2LHome(after), `${c.name} after "${ll}"`);
+    }
+  }
+});
+
+const OTHER_CROSS_EDGES = ['D6', 'R8', 'D8', 'B8', 'D4', 'L8'];
+const FRONT_CROSS_EDGE = ['D2', 'F8'];
+
+test('cross: the 11 ways one edge can sit, each solved in at most 4 moves', () => {
+  const cases = allCases(CROSS_ALGS);
+  assert.equal(cases.length, 11);
+  const keys = new Set();
+  for (const c of cases) {
+    for (const v of c.variants) {
+      const before = setup(v.alg);
+      assert.equal(where(before, OTHER_CROSS_EDGES), OTHER_CROSS_EDGES.join(' '), `${c.name}: other cross edges moved`);
+      assert.notEqual(where(before, FRONT_CROSS_EDGE), FRONT_CROSS_EDGE.join(' '), `${c.name}: nothing to solve`);
+      assert.ok(tokenize(v.alg).length <= 4, `${c.name}: ${v.alg}`);
+    }
+    keys.add(TURNS.map(t => where(apply(setup(c.variants[0].alg), t), FRONT_CROSS_EDGE)).sort()[0]);
+  }
+  assert.equal(keys.size, 11);
 });

@@ -6,8 +6,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-<title>Two-Look OLL & PLL — 3D Cube Trainer</title>
-<meta name="description" content="Learn beginner two-look OLL and PLL on an interactive 3D Rubik's cube: pick a case, choose an algorithm, and step through it move by move.">
+<title>Cube Trainer — Cross, F2L, OLL & PLL in 3D</title>
+<meta name="description" content="Learn to solve faster on an interactive 3D Rubik's cube: cross, F2L, two-look OLL and PLL, step by step, with a drill timer and a full-solve timer.">
 <meta name="theme-color" content="#0c0c0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://cube.lyuz.net/">
-<meta property="og:title" content="Two-Look OLL & PLL — 3D Cube Trainer">
+<meta property="og:title" content="Cube Trainer — Cross, F2L, OLL & PLL in 3D">
 <meta property="og:description" content="Pick a case, choose an algorithm, and step through it move by move on an interactive 3D cube.">
 <meta property="og:image" content="https://cube.lyuz.net/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -178,6 +178,8 @@
     font-size: 14px;
     margin-bottom: 3px;
   }
+
+  .alg-desc { font-size: 11px; line-height: 1.4; color: var(--text-dim); margin-bottom: 4px; }
 
   .alg-moves {
     font-family: 'JetBrains Mono', monospace;
@@ -768,13 +770,15 @@
 
 <div id="sidebar">
   <div id="sidebar-header">
-    <h1>🧊 Two-Look <span>OLL</span> & <span>PLL</span></h1>
+    <h1>🧊 Cube <span>Trainer</span></h1>
     <div class="tab-bar">
+      <button class="tab-btn" data-tab="cross">Cross</button>
+      <button class="tab-btn" data-tab="f2l">F2L</button>
       <button class="tab-btn active" data-tab="oll">OLL</button>
       <button class="tab-btn" data-tab="pll">PLL</button>
     </div>
     <div class="timer-links">
-      <button id="btn-timer" title="Scrambles that set up one last-layer case, timed per case">⏱ Last-layer drill</button>
+      <button id="btn-timer" title="Scrambles that set up one F2L, OLL or PLL case, timed per case">⏱ Case drill</button>
       <a href="/timer" title="Full solves with competition-style scrambles, inspection and averages">⏱ 3×3 solve timer</a>
     </div>
   </div>
@@ -786,21 +790,22 @@
   <button id="modal-close">✕</button>
   <div id="cube-container">
     <div id="placeholder">
-      <p>Pick a case, or start a last-layer drill</p>
+      <p>Pick a case, or start a case drill</p>
     </div>
   </div>
   <div id="trainer">
     <div class="tr-row">
       <div class="seg" id="tr-mode">
+        <button data-mode="f2l">F2L</button>
         <button data-mode="oll">OLL</button>
-        <button data-mode="ll">OLL + PLL</button>
+        <button data-mode="ll">OLL+PLL</button>
         <button data-mode="pll">PLL</button>
       </div>
       <button class="ctrl-btn" id="tr-exit">✕ Close timer</button>
     </div>
     <button id="tr-focus" title="Back to random cases"></button>
     <div>
-      <div class="tr-label">Scramble · yellow on top, green in front</div>
+      <div class="tr-label" id="tr-scramble-label"></div>
       <div id="tr-scramble"></div>
     </div>
     <div class="tr-row">
@@ -839,189 +844,35 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
-
-// ═══════════════════════════════════════════
-//  ALGORITHM DATABASE
-// ═══════════════════════════════════════════
-
-const OLL_ALGS = [
-  {
-    section: "STEP 1 — EDGE ORIENTATION",
-    edgesOnly: true,
-    algs: [
-      {
-        name: "Dot",
-        desc: "No edges oriented",
-        variants: [
-          { label: "Standard", alg: "F R U R' U' F' f R U R' U' f'" },
-          { label: "One-look", alg: "R U2 R2 F R F' U2 R' F R F'" },
-          { label: "r U r'", alg: "r U r' U2 R U2 R' U2 r U' r'" },
-        ],
-      },
-      {
-        name: "L-Shape",
-        desc: "Two adjacent edges",
-        variants: [
-          { label: "f-wide", alg: "f R U R' U' f'" },
-          { label: "F U R", alg: "F U R U' R' F'" },
-          { label: "Left-hand", alg: "f' L' U' L U f" },
-        ],
-      },
-      {
-        name: "Line",
-        desc: "Two opposite edges",
-        variants: [
-          { label: "Standard", alg: "F R U R' U' F'" },
-          { label: "R' F", alg: "R' F' U' F U R" },
-          { label: "f-wide", alg: "f U R U' R' f'" },
-        ],
-      }
-    ]
-  },
-  {
-    section: "STEP 2 — CORNER ORIENTATION",
-    algs: [
-      {
-        name: "Sune (OLL 27)",
-        desc: "One corner oriented",
-        variants: [
-          { label: "Standard", alg: "R U R' U R U2 R'" },
-          { label: "Left-hand", alg: "L' U2 L U L' U L" },
-          { label: "L U L'", alg: "L U L' U L U2 L'" },
-        ],
-      },
-      {
-        name: "Anti-Sune (OLL 26)",
-        desc: "One corner oriented (mirror)",
-        variants: [
-          { label: "Standard", alg: "R U2 R' U' R U' R'" },
-          { label: "Left-hand", alg: "R' U' R U' R' U2 R" },
-          { label: "L' U2 L", alg: "L' U' L U' L' U2 L" },
-        ],
-      },
-      {
-        name: "H / Double Sune (OLL 21)",
-        desc: "No corners oriented — headlights on all sides",
-        variants: [
-          { label: "Double Sune", alg: "R U R' U R U' R' U R U2 R'" },
-          { label: "Inverse", alg: "R U2 R' U' R U R' U' R U' R'" },
-          { label: "F-based", alg: "F R U R' U' R U R' U' R U R' U' F'" },
-        ],
-      },
-      {
-        name: "Pi / Bruno (OLL 22)",
-        desc: "No corners oriented — headlights on one side",
-        variants: [
-          { label: "Standard", alg: "R U2 R2 U' R2 U' R2 U2 R" },
-          { label: "Mirror", alg: "R' U2 R2 U R2 U R2 U2 R'" },
-          { label: "f-based", alg: "f R U R' U' f' F R U R' U' F'" },
-        ],
-      },
-      {
-        name: "T / Chameleon (OLL 24)",
-        desc: "Two diagonal corners oriented",
-        variants: [
-          { label: "Standard", alg: "r U R' U' r' F R F'" },
-          { label: "R' F'", alg: "R' F' r U R U' r' F" },
-          { label: "R U R D", alg: "R U R D R' U' R D' R2" },
-        ],
-      },
-      {
-        name: "L / Bowtie (OLL 25)",
-        desc: "Two diagonal corners oriented",
-        variants: [
-          { label: "R U2 R D", alg: "R U2 R D R' U2 R D' R2" },
-          { label: "F' r U R'", alg: "F' r U R' U' r' F R" },
-          { label: "F R' F'", alg: "F R' F' r U R U' r'" },
-        ],
-      },
-      {
-        name: "Headlights (OLL 23)",
-        desc: "Two adjacent corners oriented",
-        variants: [
-          { label: "Standard", alg: "R2 D R' U2 R D' R' U2 R'" },
-          { label: "Mirror", alg: "R2 D' R U2 R' D R U2 R" },
-          { label: "2GEN long", alg: "R U R' U R U2 R2 U' R U' R' U2 R" },
-        ],
-      }
-    ]
-  }
-];
-
-const PLL_ALGS = [
-  {
-    section: "STEP 1 — CORNER PERMUTATION",
-    algs: [
-      {
-        name: "Adj. Corner Swap",
-        desc: "T-Perm — swap 2 adjacent corners",
-        variants: [
-          { label: "T-Perm", alg: "R U R' U' R' F R2 U' R' U' R U R' F'" },
-          { label: "J-Perm (a)", alg: "R' U L' U2 R U' R' U2 R L" },
-          { label: "J-Perm (b)", alg: "R U R' F' R U R' U' R' F R2 U' R'" },
-          { label: "F-Perm", alg: "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R" },
-        ],
-      },
-      {
-        name: "Diag. Corner Swap",
-        desc: "Y-Perm — swap 2 diagonal corners",
-        variants: [
-          { label: "Y-Perm", alg: "F R U' R' U' R U R' F' R U R' U' R' F R F'" },
-          { label: "N-Perm (a)", alg: "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'" },
-          { label: "V-Perm", alg: "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2" },
-        ],
-      }
-    ]
-  },
-  {
-    section: "STEP 2 — EDGE PERMUTATION",
-    algs: [
-      {
-        name: "Ua-Perm",
-        desc: "3-edge cycle clockwise",
-        variants: [
-          { label: "RU Standard", alg: "R U' R U R U R U' R' U' R2" },
-          { label: "M-slice", alg: "M2 U M U2 M' U M2" },
-          { label: "R2 version", alg: "R2 U' R' U' R U R U R U' R" },
-        ],
-      },
-      {
-        name: "Ub-Perm",
-        desc: "3-edge cycle counter-CW",
-        variants: [
-          { label: "RU Standard", alg: "R2 U R U R' U' R' U' R' U R'" },
-          { label: "M-slice", alg: "M2 U' M U2 M' U' M2" },
-          { label: "R' version", alg: "R' U R' U' R' U' R' U R U R2" },
-        ],
-      },
-      {
-        name: "H-Perm",
-        desc: "Swap opposite edge pairs",
-        variants: [
-          { label: "RU Standard", alg: "R2 U2 R U2 R2 U2 R2 U2 R U2 R2" },
-          { label: "M-slice", alg: "M2 U M2 U2 M2 U M2" },
-          { label: "M2 U'", alg: "M2 U' M2 U2 M2 U' M2" },
-        ],
-      },
-      {
-        name: "Z-Perm",
-        desc: "Swap adjacent edge pairs",
-        variants: [
-          { label: "RU Standard", alg: "R U R' U R' U' R' U R U' R' U' R2 U R" },
-          { label: "M-slice", alg: "M2 U M2 U M' U2 M2 U2 M'" },
-          { label: "M' U", alg: "M' U M2 U M2 U M' U2 M2" },
-        ],
-      }
-    ]
-  }
-];
+import { CROSS_ALGS, F2L_ALGS, OLL_ALGS, PLL_ALGS } from './js/algs.js';
 
 // ═══════════════════════════════════════════
 //  PROGRESS & LINKS
 // ═══════════════════════════════════════════
 
-const ALGS_BY_TAB = { oll: OLL_ALGS, pll: PLL_ALGS };
+const ALGS_BY_TAB = { cross: CROSS_ALGS, f2l: F2L_ALGS, oll: OLL_ALGS, pll: PLL_ALGS };
 const isTab = tab => Object.hasOwn(ALGS_BY_TAB, tab);
+
+// Per-step rules. drill: has timed scrambles. twoLook: a first-look case is
+// followed by a second-look one. desc: cards show the case description.
+const TAB_INFO = {
+  cross: { desc: true, note: 'The cross has no algorithms to memorise: you plan it. These are the ways a single edge can sit, with the shortest way home. Work out all four edges during inspection, then practise on the <b>3×3 solve timer</b>.' },
+  f2l: { drill: true, desc: true },
+  oll: { drill: true, twoLook: true },
+  pll: { drill: true, twoLook: true },
+};
+const isDrill = mode => mode === 'll' || (isTab(mode) && !!TAB_INFO[mode].drill);
+
+// Which pieces each step is about, by home position (x right, y up, z front);
+// the 3D cube and the icons draw every other piece dark
+const isCentre = (x, y, z) => Math.abs(x) + Math.abs(y) + Math.abs(z) === 1;
+const SHOWN = {
+  full: () => true,
+  cross: (x, y, z) => isCentre(x, y, z) || (y === -1 && Math.abs(x) + Math.abs(z) === 1),
+  f2l: (x, y, z) => y <= 0 || isCentre(x, y, z),
+  oll: (x, y, z) => y === 1,
+  pll: (x, y, z) => y === 1,
+};
 const slug = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const ALG_BY_KEY = {};
@@ -1155,15 +1006,15 @@ function rotQuarter(v, axis, q) {
   return [x, y, z];
 }
 
-// Returns sticker(r, c, side): face letter of the top-layer sticker at icon
-// cell (r,c) — side 'U' for the top sticker, or 'T'/'B'/'L'/'R' for the side one
-function topLayerFor(algStr) {
+// All 54 stickers after the setup: where each one is (p, n), its colour (face)
+// and the home position of the piece it belongs to
+function setupStickers(algStr) {
   const stickers = [];
   for (let x = -1; x <= 1; x++)
     for (let y = -1; y <= 1; y++)
       for (let z = -1; z <= 1; z++)
         for (const [face, n] of Object.entries(FACE_NORMALS))
-          if (n[0] * x + n[1] * y + n[2] * z === 1) stickers.push({ p: [x, y, z], n, face });
+          if (n[0] * x + n[1] * y + n[2] * z === 1) stickers.push({ p: [x, y, z], n, face, home: [x, y, z] });
 
   getInverse(tokenize(algStr)).forEach(tok => {
     const move = parseMove(tok);
@@ -1175,7 +1026,13 @@ function topLayerFor(algStr) {
       s.n = rotQuarter(s.n, move.axis, q);
     });
   });
+  return stickers;
+}
 
+// Returns sticker(r, c, side): face letter of the top-layer sticker at icon
+// cell (r,c) — side 'U' for the top sticker, or 'T'/'B'/'L'/'R' for the side one
+function topLayerFor(algStr) {
+  const stickers = setupStickers(algStr);
   return (r, c, side) => {
     const p = [c - 1, 1, r - 1];
     const n = side === 'U' ? FACE_NORMALS.U : SIDE_NORMALS[side];
@@ -1198,9 +1055,34 @@ function outsideSides(r, c) {
 // Red is deep crimson and orange is light, so they differ in lightness too, not just hue
 const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#ff9a2e', B:'#3b82f6', L:'#dc1f3c', D:'#e8e8f0' };
 
-// kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors.
+// Three-quarter view (top, front, right) for the steps that are not about the
+// top layer alone. u and v span each face, n points out of it.
+const ISO_FACES = [
+  { n: [0, 1, 0], u: [1, 0, 0], v: [0, 0, 1] },
+  { n: [0, 0, 1], u: [1, 0, 0], v: [0, -1, 0] },
+  { n: [1, 0, 0], u: [0, 0, -1], v: [0, -1, 0] },
+];
+const isoXY = ([x, y, z]) => `${((x - z) * 0.866).toFixed(2)},${((x + z) * 0.5 - y).toFixed(2)}`;
+
+function createIsoSvg(algStr, kind, size) {
+  const stickers = setupStickers(algStr);
+  let svg = `<svg width="${size}" height="${size}" viewBox="-2.8 -3.15 5.6 6.3" xmlns="http://www.w3.org/2000/svg">`;
+  for (const { n, u, v } of ISO_FACES)
+    for (const st of stickers) {
+      if (st.n + '' !== n + '') continue;
+      const centre = st.p.map((q, i) => q + n[i] * 0.5);
+      const points = [[-1, -1], [1, -1], [1, 1], [-1, 1]]
+        .map(([a, b]) => isoXY(centre.map((q, i) => q + (a * u[i] + b * v[i]) * 0.44))).join(' ');
+      svg += `<polygon points="${points}" fill="${SHOWN[kind](...st.home) ? ICON_FACE_HEX[st.face] : '#3a3a4a'}"/>`;
+    }
+  return svg + '</svg>';
+}
+
+// kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors;
+// 'cross' and 'f2l' show the cube from the front-right.
 // edgesOnly: step-1 OLL, where corners don't matter and are drawn neutral.
 function createIconSvg(algStr, kind, edgesOnly, size = 48) {
+  if (kind === 'cross' || kind === 'f2l') return createIsoSvg(algStr, kind, size);
   const { total, cs } = ICON;
   const sticker = topLayerFor(algStr);
   let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${total} ${total}" xmlns="http://www.w3.org/2000/svg">`;
@@ -1247,6 +1129,7 @@ function getAlgString(alg) {
 }
 
 function caseBadge(alg, focus) {
+  if (!TAB_INFO[alg.tab].drill) return '';
   if (!isIncluded(alg)) return '<span class="badge off">Not in scrambles</span>';
   if (focus.slow.has(alg)) return '<span class="badge slow">Slowest</span>';
   if (focus.reps.has(alg)) return `<span class="badge reps">Needs reps ${focus.stats.get(alg).count}/${MIN_SOLVES}</span>`;
@@ -1264,6 +1147,7 @@ function renderFocusBanner(focus) {
   banner.id = 'focus-banner';
   const names = set => [...set].map(a => a.name.replace(/ \(.*\)/, ''));
   const parts = [];
+  if (TAB_INFO[currentTab].note) parts.push(TAB_INFO[currentTab].note);
   if (focus.slow.size) parts.push(`Slowest: <b>${names(focus.slow).join(', ')}</b>`);
   if (focus.reps.size) parts.push(`Needs reps: <b>${focus.reps.size}</b> case${focus.reps.size > 1 ? 's' : ''}`);
   banner.innerHTML = parts.join('<br>');
@@ -1308,13 +1192,14 @@ function renderList() {
             <div class="alg-name">${alg.name}</div>
             ${caseBadge(alg, focus)}
           </div>
+          ${TAB_INFO[currentTab].desc ? `<div class="alg-desc">${alg.desc}</div>` : ''}
           <div class="alg-moves">${alg.variants[varIdx].alg}</div>
           ${variantsHtml}
-          <div class="case-foot">
+          ${TAB_INFO[currentTab].drill ? `<div class="case-foot">
             <div class="case-stats">${caseStatsText(focus.stats.get(alg) || caseStats(alg))}</div>
             <button class="chip-btn time" data-act="time" title="Timer with scrambles for this case only">⏱ Time it</button>
             <button class="chip-btn" data-act="mix" title="Use this case in random scrambles">${isIncluded(alg) ? '✓ In mix' : '○ Off'}</button>
-          </div>
+          </div>` : ''}
         </div>`;
 
       // Click card body → select this alg
@@ -1345,13 +1230,13 @@ function renderList() {
         syncFav();
       });
 
-      card.querySelector('[data-act=time]').addEventListener('click', (e) => {
+      card.querySelector('[data-act=time]')?.addEventListener('click', (e) => {
         e.stopPropagation();
         startTrainer({ mode: alg.tab, focus: alg });
       });
 
       // Toggle whether random scrambles may use this case
-      card.querySelector('[data-act=mix]').addEventListener('click', (e) => {
+      card.querySelector('[data-act=mix]')?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (isIncluded(alg)) store.excluded[alg.key] = true;
         else delete store.excluded[alg.key];
@@ -1456,7 +1341,7 @@ const cubies = [];
 const cubeGroup = new THREE.Group();
 scene.add(cubeGroup);
 
-let displayMode = 'full'; // 'full', 'oll', 'pll'
+let displayMode = 'full'; // 'full' or a tab: which pieces are coloured (see SHOWN)
 let buildGen = 0; // bumped on every rebuild so in-flight animations can bail out
 let stepQueue = 0; // Step/Back taps received while a move animates (+ forward, − back)
 
@@ -1507,39 +1392,15 @@ function stickerMat(color) {
 
 function getCubieColors(x, y, z) {
   // Returns [+x, -x, +y, -y, +z, -z] colors, null = no sticker
-  if (displayMode === 'oll') {
-    if (y === 1) {
-      return [
-        x === 1 ? COLORS.G : null,
-        x === -1 ? COLORS.G : null,
-        COLORS.U,
-        null,
-        z === 1 ? COLORS.G : null,
-        z === -1 ? COLORS.G : null,
-      ];
-    }
-    return [null, null, null, null, null, null];
-  }
-  if (displayMode === 'pll') {
-    if (y === 1) {
-      return [
-        x === 1 ? COLORS.R : null,
-        x === -1 ? COLORS.L : null,
-        COLORS.U,
-        null,
-        z === 1 ? COLORS.F : null,
-        z === -1 ? COLORS.B : null,
-      ];
-    }
-    return [null, null, null, null, null, null];
-  }
+  if (!SHOWN[displayMode](x, y, z)) return [null, null, null, null, null, null];
+  const side = face => (displayMode === 'oll' ? COLORS.G : COLORS[face]); // OLL: only yellow matters
   return [
-    x === 1 ? COLORS.R : null,
-    x === -1 ? COLORS.L : null,
+    x === 1 ? side('R') : null,
+    x === -1 ? side('L') : null,
     y === 1 ? COLORS.U : null,
     y === -1 ? COLORS.D : null,
-    z === 1 ? COLORS.F : null,
-    z === -1 ? COLORS.B : null,
+    z === 1 ? side('F') : null,
+    z === -1 ? side('B') : null,
   ];
 }
 
@@ -1570,7 +1431,7 @@ function buildCube() {
         group.position.set(x * STEP, y * STEP, z * STEP);
         group.userData = { lx: x, ly: y, lz: z };
 
-        const isGhost = displayMode !== 'full' && y !== 1;
+        const isGhost = !SHOWN[displayMode](x, y, z);
 
         // Dark body
         const body = new THREE.Mesh(bodyGeo, isGhost ? ghostBodyMat : bodyMat);
@@ -2112,7 +1973,7 @@ function selectAlg(alg, cardEl) {
 
   placeholder.style.display = 'none';
   currentAlg = alg;
-  displayMode = currentTab; // 'oll' or 'pll'
+  displayMode = currentTab;
   moveTokens = tokenize(getAlgString(alg));
   moveIndex = 0;
   playing = false;
@@ -2153,7 +2014,7 @@ const trShowBtn = document.getElementById('tr-show');
 const trFocusBtn = document.getElementById('tr-focus');
 const trStatsEl = document.getElementById('tr-stats');
 const trRecentEl = document.getElementById('tr-recent');
-const MODE_LABEL = { oll: 'OLL', ll: 'OLL + PLL', pll: 'PLL' };
+const MODE_LABEL = { f2l: 'F2L', oll: 'OLL', ll: 'OLL + PLL', pll: 'PLL' };
 const HOLD_MS = 500;
 const AUFS = ['', 'U', 'U2', "U'"];
 
@@ -2203,6 +2064,8 @@ function pickTarget(tab) {
 // One way to solve a tab's part starting from `target`: a first-look target
 // is followed by a random second-look case (or a skip) from the scramble mix
 function solvePart(target) {
+  // Outside the last layer a case is solved by its algorithm alone, from any angle
+  if (!TAB_INFO[target.tab].twoLook) return [...randomAuf(), ...faceTurnAlg(target)];
   const tokens = [...randomAuf(), ...faceTurnAlg(target), ...randomAuf()];
   if (target.step === 1) {
     const second = casesOf(target.tab, 2).filter(isIncluded);
@@ -2231,12 +2094,13 @@ function setHint(on) {
   trHintEl.classList.toggle('on', on);
   if (!on) return;
   const { mode, targets, solution } = trainer.item;
-  const kind = mode === 'pll' ? 'pll' : 'oll';
+  const kind = mode === 'll' ? 'oll' : mode;
   const first = targets[0];
+  const firstLook = TAB_INFO[first.tab].twoLook && first.step === 1;
   trHintEl.innerHTML = `
     ${createIconSvg(solution.join(' '), kind, false, 72)}
     <div>
-      <div class="name">${first.name}${first.step === 1 ? ' <span style="color:var(--text-dim)">(first look)</span>' : ''}</div>
+      <div class="name">${first.name}${firstLook ? ' <span style="color:var(--text-dim)">(first look)</span>' : ''}</div>
       <div class="alg">${first.variants[defaultVariant(first)].alg}</div>
       ${mode === 'll' ? '<div class="alg">…then PLL</div>' : ''}
     </div>`;
@@ -2250,6 +2114,9 @@ function setMode(mode) {
   document.querySelectorAll('#tr-mode button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   trFocusBtn.classList.toggle('on', !!trainer.focus);
   trFocusBtn.textContent = trainer.focus ? `Only ${trainer.focus.name}  ✕` : '';
+  // An F2L setup lands the same pair whatever the last layer looks like
+  document.getElementById('tr-scramble-label').textContent = 'Scramble · yellow on top, green in front'
+    + (mode === 'f2l' ? ' · the top layer can be left unsolved' : '');
   history.replaceState(history.state, '', `#timer/${mode}` + (trainer.focus ? `/${slug(trainer.focus.name)}` : ''));
   newScramble();
   renderTrainerStats();
@@ -2344,11 +2211,11 @@ function startTrainer({ mode = store.mode, focus = null } = {}) {
   trainer.active = true;
   trainer.focus = focus;
   mainEl.classList.add('trainer-mode');
-  modalAlgName.textContent = 'Last-layer drill';
+  modalAlgName.textContent = 'Case drill';
   if (isMobile()) openMobileModal();
   setTimerState('idle');
   trTimeEl.textContent = fmtTime(0);
-  setMode(isTab(mode) || mode === 'll' ? mode : 'oll');
+  setMode(isDrill(mode) ? mode : 'oll');
 }
 
 // Leave timer state (the caller decides what shows next)
@@ -2399,7 +2266,7 @@ trainerEl.addEventListener('contextmenu', e => e.preventDefault());
 function openLink(hash) {
   const [tab, algSlug, varSlug] = hash.replace(/^#/, '').split('/');
   if (tab === 'timer') {
-    const mode = isTab(algSlug) || algSlug === 'll' ? algSlug : store.mode;
+    const mode = isDrill(algSlug) ? algSlug : store.mode;
     const focus = (isTab(mode) && ALGS_BY_TAB[mode].flatMap(section => section.algs).find(a => slug(a.name) === varSlug)) || null;
     startTrainer({ mode, focus });
     return;
