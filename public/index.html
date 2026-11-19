@@ -1016,6 +1016,7 @@ const PLL_ALGS = [
 // ═══════════════════════════════════════════
 
 const ALGS_BY_TAB = { oll: OLL_ALGS, pll: PLL_ALGS };
+const isTab = tab => Object.hasOwn(ALGS_BY_TAB, tab);
 const slug = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const ALG_BY_KEY = {};
@@ -1050,7 +1051,8 @@ function saveStore() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {}
 }
 
-const fmtTime = ms => (ms / 1000).toFixed(2);
+// Truncated to the hundredth, as on a competition display (9.999 is 9.99, not 10.00)
+const fmtTime = ms => (Math.floor(ms / 10) / 100).toFixed(2);
 const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 // Average of the last n with best and worst dropped (the cubing "ao5/ao12")
@@ -1490,6 +1492,14 @@ const stickerGeo = new THREE.PlaneGeometry(STICKER_SIZE, STICKER_SIZE);
 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1a24, roughness: 0.9, metalness: 0 });
 const ghostBodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1a24, roughness: 0.9, metalness: 0 });
 
+// One shared material per sticker colour (rebuilding the cube used to leak 54 each time)
+const stickerMats = new Map();
+function stickerMat(color) {
+  if (!stickerMats.has(color))
+    stickerMats.set(color, new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }));
+  return stickerMats.get(color);
+}
+
 function getCubieColors(x, y, z) {
   // Returns [+x, -x, +y, -y, +z, -z] colors, null = no sticker
   if (displayMode === 'oll') {
@@ -1565,10 +1575,7 @@ function buildCube() {
         const colors = getCubieColors(x, y, z);
         colors.forEach((col, fi) => {
           if (col === null) return;
-          const mat = new THREE.MeshStandardMaterial({
-            color: col, roughness: 0.85, metalness: 0, side: THREE.DoubleSide
-          });
-          const sticker = new THREE.Mesh(stickerGeo, mat);
+          const sticker = new THREE.Mesh(stickerGeo, stickerMat(col));
           const fd = FACE_DEFS[fi];
           sticker.position.set(...fd.pos);
           sticker.rotation.set(...fd.rot);
@@ -2334,7 +2341,7 @@ function startTrainer({ mode = store.mode, focus = null } = {}) {
   if (isMobile()) openMobileModal();
   setTimerState('idle');
   trTimeEl.textContent = fmtTime(0);
-  setMode(ALGS_BY_TAB[mode] || mode === 'll' ? mode : 'oll');
+  setMode(isTab(mode) || mode === 'll' ? mode : 'oll');
 }
 
 // Leave timer state (the caller decides what shows next)
@@ -2385,12 +2392,12 @@ trainerEl.addEventListener('contextmenu', e => e.preventDefault());
 function openLink(hash) {
   const [tab, algSlug, varSlug] = hash.replace(/^#/, '').split('/');
   if (tab === 'timer') {
-    const mode = ALGS_BY_TAB[algSlug] || algSlug === 'll' ? algSlug : store.mode;
-    const focus = ALGS_BY_TAB[mode]?.flatMap(section => section.algs).find(a => slug(a.name) === varSlug) || null;
+    const mode = isTab(algSlug) || algSlug === 'll' ? algSlug : store.mode;
+    const focus = (isTab(mode) && ALGS_BY_TAB[mode].flatMap(section => section.algs).find(a => slug(a.name) === varSlug)) || null;
     startTrainer({ mode, focus });
     return;
   }
-  if (!ALGS_BY_TAB[tab]) return;
+  if (!isTab(tab)) return;
   switchTab(tab);
   const alg = ALGS_BY_TAB[tab].flatMap(section => section.algs).find(a => slug(a.name) === algSlug);
   if (!alg) return;
@@ -2434,7 +2441,8 @@ window.addEventListener('keydown', e => {
 
 function render() {
   requestAnimationFrame(render);
-  if (isMobile() && !mainEl.classList.contains('modal-open')) return;
+  // Nothing to draw while the cube is off screen or behind the drill timer
+  if (trainer.active || (isMobile() && !mainEl.classList.contains('modal-open'))) return;
   renderer.render(scene, camera);
 }
 render();
