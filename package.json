@@ -1,6 +1,8 @@
 {
   "name": "cube-trainer",
   "private": true,
+  "description": "Speedcubing trainer: cross, F2L, OLL and PLL on a 3D cube, plus a full-solve timer",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
