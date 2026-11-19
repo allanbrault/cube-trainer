@@ -1186,9 +1186,10 @@ function outsideSides(r, c) {
   return sides;
 }
 
-// Same hues as the 3D cube: F green, R red, B blue, L orange
+// Same layout as the 3D cube and a real one held yellow up, green in front:
+// orange on the right, red on the left, blue at the back
 // Red is deep crimson and orange is light, so they differ in lightness too, not just hue
-const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#dc1f3c', B:'#3b82f6', L:'#ff9a2e', D:'#e8e8f0' };
+const ICON_FACE_HEX = { U:'#f7c948', F:'#22c55e', R:'#ff9a2e', B:'#3b82f6', L:'#dc1f3c', D:'#e8e8f0' };
 
 // kind: 'oll' shows yellow vs. not-yellow; 'pll' shows real side colors.
 // edgesOnly: step-1 OLL, where corners don't matter and are drawn neutral.
@@ -1438,8 +1439,8 @@ const COLORS = {
   D: 0xFFFFFF,  // white  (bottom)
   F: 0x009B48,  // green  (front)
   B: 0x0045AD,  // blue   (back)
-  R: 0xB90000,  // red    (right)
-  L: 0xFF5900,  // orange (left)
+  R: 0xFF5900,  // orange (right)
+  L: 0xB90000,  // red    (left)
   X: 0x111111,  // internal face
   G: 0x1e1e2a   // ghost (non-relevant pieces)
 };
