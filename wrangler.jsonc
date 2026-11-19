@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cube-oll-pll",
+  "name": "cube-trainer",
   "compatibility_date": "2026-03-14",
   "assets": {
     "directory": "./public"
